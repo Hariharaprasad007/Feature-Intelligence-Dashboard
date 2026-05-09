@@ -11,12 +11,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-        // Environment variables provided by the container
+        // Firebase Configuration
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
-            : { apiKey: "fallback", projectId: "fallback" };
+            : { apiKey: "", projectId: "placeholder-id" };
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'feature-intel-001';
 
         const app = initializeApp(firebaseConfig);
@@ -36,12 +36,10 @@
             user: null,
             requests: [],
             currentTab: 'backlog',
-            filter: '',
-            aiLoading: false,
-            initialLoadComplete: false
+            isDrawerOpen: false
         };
 
-        // --- AUTHENTICATION ---
+        // --- AUTH ---
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -49,16 +47,12 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (err) {
-                console.error("Auth failed:", err);
-            }
+            } catch (err) { console.error("Auth Error:", err); }
         };
 
         onAuthStateChanged(auth, (user) => {
             state.user = user;
-            if (user) {
-                setupListeners();
-            }
+            if (user) setupListeners();
         });
 
         // --- DATA ---
@@ -66,7 +60,6 @@
             const q = collection(db, 'artifacts', appId, 'public', 'data', 'feature_requests');
             onSnapshot(q, (snapshot) => {
                 state.requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                state.initialLoadComplete = true;
                 render();
             }, (err) => console.error("Firestore Error:", err));
         }
@@ -88,31 +81,28 @@
             };
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feature_requests'), data);
             e.target.reset();
-            toggleDrawer();
+            window.toggleDrawer();
         };
 
         window.importCSV = async () => {
             const area = document.getElementById('csvInput');
-            const lines = area.value.split('\n').filter(line => line.trim() !== '');
+            const lines = area.value.split('\n').filter(l => l.trim().includes(','));
             if (!lines.length || !state.user) return;
 
             const btn = document.getElementById('csvBtn');
-            btn.innerText = "Importing...";
+            btn.innerText = "Processing...";
             btn.disabled = true;
 
             try {
-                // Using individual addDoc for simplicity in this logic
                 for (const line of lines) {
-                    const [customer, mrr, module, priority, ...descParts] = line.split(',');
-                    const description = descParts.join(','); // In case desc has commas
-                    
-                    if (customer && module) {
+                    const parts = line.split(',').map(p => p.trim());
+                    if (parts.length >= 3) {
                         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feature_requests'), {
-                            customer: customer.trim(),
-                            mrr: parseFloat(mrr) || 0,
-                            module: module.trim(),
-                            priority: priority?.trim() || 'Medium',
-                            description: description?.trim() || 'Imported via CSV',
+                            customer: parts[0],
+                            mrr: parseFloat(parts[1]) || 0,
+                            module: parts[2],
+                            priority: parts[3] || 'Medium',
+                            description: parts.slice(4).join(', ') || 'Bulk Imported',
                             status: 'Logged',
                             createdAt: Date.now(),
                             userId: state.user.uid
@@ -120,11 +110,10 @@
                     }
                 }
                 area.value = '';
-                toggleDrawer();
-                alert('Import successful!');
+                window.toggleDrawer();
             } catch (err) {
-                alert('Import failed. Check console.');
                 console.error(err);
+                alert("Import encountered an error.");
             } finally {
                 btn.innerText = "IMPORT CSV";
                 btn.disabled = false;
@@ -132,12 +121,11 @@
         };
 
         window.updateStatus = async (id, status) => {
-            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'feature_requests', id);
-            await updateDoc(ref, { status });
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feature_requests', id), { status });
         };
 
         window.deleteReq = async (id) => {
-            if (confirm('Delete this request?')) {
+            if (confirm('Permanently delete this request?')) {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feature_requests', id));
             }
         };
@@ -148,59 +136,38 @@
         };
 
         window.toggleDrawer = () => {
-            document.getElementById('drawer').classList.toggle('translate-x-full');
+            state.isDrawerOpen = !state.isDrawerOpen;
+            const drawer = document.getElementById('drawer');
+            if (state.isDrawerOpen) {
+                drawer.classList.remove('translate-x-full');
+                populateModuleSelect();
+            } else {
+                drawer.classList.add('translate-x-full');
+            }
         };
 
-        window.analyzeTranscript = () => {
-            const text = document.getElementById('transcriptInput').value;
-            if (!text) return;
-            const log = document.getElementById('aiLog');
-            log.innerHTML = `<div class="p-4 bg-indigo-50 animate-pulse text-xs">Analyzing sync notes...</div>`;
-            
-            setTimeout(() => {
-                log.innerHTML = `
-                    <div class="bg-white border rounded-xl p-4 shadow-sm space-y-3 animate-in">
-                        <div class="text-[10px] font-black text-indigo-600 uppercase">Extracted Insights</div>
-                        <ul class="text-xs space-y-2 text-slate-600">
-                            <li>🎯 <b>Decision:</b> Prioritize 'MCP' improvements for Q3.</li>
-                            <li>⚠️ <b>Risk:</b> High churn threat for Acme if 'Search' isn't optimized.</li>
-                            <li>✅ <b>Action:</b> Assigned documentation audit to CSM Team.</li>
-                        </ul>
-                    </div>
-                `;
-            }, 1500);
-        };
+        function populateModuleSelect() {
+            const select = document.getElementById('moduleSelect');
+            if (!select) return;
+            select.innerHTML = MODULE_LIST.map(m => `<option value="${m}">${m}</option>`).join('');
+        }
 
-        // --- UI RENDERING ---
+        // --- RENDERERS ---
         function render() {
-            const main = document.getElementById('content');
+            const main = document.getElementById('mainContent');
             updateStats();
-            updateNavUI();
+            updateTabStyles();
             
             if (state.currentTab === 'backlog') renderBacklog(main);
             else if (state.currentTab === 'roadmap') renderRoadmap(main);
             else renderCalls(main);
             
-            updateChart();
-        }
-
-        function updateNavUI() {
-            const tabs = ['backlog', 'roadmap', 'calls'];
-            tabs.forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                if (btn) {
-                    if (state.currentTab === t) {
-                        btn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
-                    } else {
-                        btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
-                    }
-                }
-            });
+            renderChart();
         }
 
         function updateStats() {
             const active = state.requests.filter(r => r.status !== 'Shipped');
-            const mrr = active.reduce((s, r) => s + (r.mrr || 0), 0);
+            const mrr = active.reduce((sum, r) => sum + (r.mrr || 0), 0);
             const crit = active.filter(r => r.priority === 'Critical').length;
             
             document.getElementById('stat-count').innerText = active.length;
@@ -208,68 +175,92 @@
             document.getElementById('stat-crit').innerText = crit;
         }
 
+        function updateTabStyles() {
+            ['backlog', 'roadmap', 'calls'].forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (state.currentTab === t) {
+                    el.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+                } else {
+                    el.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+                }
+            });
+        }
+
         function renderBacklog(el) {
             el.innerHTML = `
-                <div class="bg-white rounded-3xl border shadow-sm overflow-hidden animate-in">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-slate-400 font-black uppercase border-b">
-                            <tr>
-                                <th class="p-5">Customer / Detail</th>
-                                <th class="p-5">Module</th>
-                                <th class="p-5">MRR Impact</th>
-                                <th class="p-5">Status</th>
-                                <th class="p-5 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y">
-                            ${state.requests.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-slate-400">No requests found. Click "Log Request" to start.</td></tr>' : ''}
-                            ${state.requests.sort((a,b) => b.createdAt - a.createdAt).map(r => `
-                                <tr class="hover:bg-slate-50 transition-colors ${r.status === 'Shipped' ? 'opacity-40' : ''}">
-                                    <td class="p-5">
-                                        <div class="font-bold text-slate-900">${r.customer}</div>
-                                        <div class="text-[10px] text-slate-400 truncate max-w-xs">${r.description}</div>
-                                    </td>
-                                    <td class="p-5"><span class="px-2 py-1 bg-slate-100 rounded font-bold">${r.module}</span></td>
-                                    <td class="p-5 font-black text-emerald-600">$${(r.mrr || 0).toLocaleString()}</td>
-                                    <td class="p-5">
-                                        <select onchange="updateStatus('${r.id}', this.value)" class="bg-indigo-50 border-none rounded p-1 font-bold text-indigo-700 outline-none">
-                                            <option value="Logged" ${r.status === 'Logged' ? 'selected' : ''}>Logged</option>
-                                            <option value="In Progress" ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                                            <option value="Shipped" ${r.status === 'Shipped' ? 'selected' : ''}>Shipped ✅</option>
-                                        </select>
-                                    </td>
-                                    <td class="p-5 text-right">
-                                        <button onclick="deleteReq('${r.id}')" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                                    </td>
+                <div class="bg-white rounded-[2rem] border shadow-sm overflow-hidden animate-in">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-400 font-black uppercase border-b">
+                                <tr>
+                                    <th class="p-6">Customer & Priority</th>
+                                    <th class="p-6">Module</th>
+                                    <th class="p-6">Value</th>
+                                    <th class="p-6">Status</th>
+                                    <th class="p-6 text-right">Actions</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${state.requests.length === 0 ? `<tr><td colspan="5" class="p-20 text-center text-slate-400">No feature requests found. Start by clicking "Log Request".</td></tr>` : ''}
+                                ${state.requests.sort((a,b) => b.createdAt - a.createdAt).map(r => `
+                                    <tr class="hover:bg-slate-50 transition-colors ${r.status === 'Shipped' ? 'bg-slate-50/50 grayscale' : ''}">
+                                        <td class="p-6">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-2 h-2 rounded-full ${r.priority === 'Critical' ? 'bg-red-500 animate-pulse' : r.priority === 'High' ? 'bg-orange-400' : 'bg-slate-300'}"></div>
+                                                <div>
+                                                    <div class="font-bold text-slate-900">${r.customer}</div>
+                                                    <div class="text-[10px] text-slate-400 mt-0.5 line-clamp-1">${r.description}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="p-6"><span class="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md font-bold border border-indigo-100">${r.module}</span></td>
+                                        <td class="p-6 font-black text-emerald-600">$${(r.mrr || 0).toLocaleString()}</td>
+                                        <td class="p-6">
+                                            <select onchange="updateStatus('${r.id}', this.value)" class="bg-transparent border-none font-bold text-indigo-600 outline-none cursor-pointer">
+                                                <option value="Logged" ${r.status === 'Logged' ? 'selected' : ''}>Logged</option>
+                                                <option value="In Progress" ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                                                <option value="Shipped" ${r.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+                                            </select>
+                                        </td>
+                                        <td class="p-6 text-right">
+                                            <button onclick="deleteReq('${r.id}')" class="text-slate-300 hover:text-red-500 transition-colors"><i class="fas fa-trash-alt"></i></button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>`;
         }
 
         function renderRoadmap(el) {
-            const moduleImpact = {};
-            state.requests.filter(r => r.status !== 'Shipped').forEach(r => {
-                moduleImpact[r.module] = (moduleImpact[r.module] || 0) + r.mrr;
-            });
-            const sorted = Object.entries(moduleImpact).sort((a,b) => b[1] - a[1]).slice(0, 3);
+            const active = state.requests.filter(r => r.status !== 'Shipped');
+            const summary = {};
+            active.forEach(r => summary[r.module] = (summary[r.module] || 0) + r.mrr);
+            const sorted = Object.entries(summary).sort((a,b) => b[1] - a[1]).slice(0, 4);
 
             el.innerHTML = `
-                <div class="bg-indigo-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden animate-in">
+                <div class="bg-slate-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden animate-in">
                     <div class="relative z-10">
-                        <h2 class="text-4xl font-black mb-4">Strategic Pulse</h2>
-                        <p class="text-indigo-200 text-sm max-w-xl mb-12">Intelligence-driven prioritization. These modules represent your highest revenue risk based on active customer requests.</p>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            ${sorted.map(([name, mrr], i) => `
-                                <div class="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
-                                    <div class="text-indigo-400 font-black text-xs mb-2 uppercase tracking-widest">Rank 0${i+1}</div>
-                                    <div class="text-xl font-bold mb-4">${name}</div>
-                                    <div class="text-2xl font-black text-emerald-400 mb-6">$${(mrr/1000).toFixed(1)}k Risk</div>
-                                    <button class="w-full py-3 bg-white text-indigo-900 font-black text-[10px] uppercase rounded-xl">Generate Business Case</button>
+                        <div class="flex justify-between items-start mb-12">
+                            <div>
+                                <h2 class="text-4xl font-black mb-2">Priority Focus</h2>
+                                <p class="text-slate-400 text-sm">Revenue at risk sorted by module demand.</p>
+                            </div>
+                            <div class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/30">Live Market Pulse</div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            ${sorted.map(([name, val], i) => `
+                                <div class="bg-white/5 border border-white/10 p-8 rounded-[2rem] hover:bg-white/10 transition-all group">
+                                    <div class="text-indigo-400 text-[10px] font-black uppercase mb-4">Priority ${i+1}</div>
+                                    <div class="text-xl font-bold mb-2 group-hover:text-indigo-300 transition-colors">${name}</div>
+                                    <div class="text-2xl font-black text-emerald-400 mb-8">$${(val/1000).toFixed(1)}k Impact</div>
+                                    <div class="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                                        <div class="h-full bg-indigo-500" style="width: ${100 - (i*20)}%"></div>
+                                    </div>
                                 </div>
                             `).join('')}
-                            ${sorted.length === 0 ? '<div class="col-span-3 text-center py-10 text-indigo-300 italic">Add requests with MRR value to see roadmap intelligence.</div>' : ''}
+                            ${sorted.length === 0 ? '<div class="col-span-4 text-center py-20 text-slate-500 italic">No revenue data available to generate roadmap.</div>' : ''}
                         </div>
                     </div>
                 </div>`;
@@ -277,59 +268,77 @@
 
         function renderCalls(el) {
             el.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in">
                     <div class="bg-white p-10 rounded-[2.5rem] border shadow-sm">
                         <h3 class="text-2xl font-black mb-2">Sync Intelligence</h3>
-                        <p class="text-xs text-slate-400 mb-8">Paste meeting transcripts or notes to extract feature decisions.</p>
-                        <textarea id="transcriptInput" class="w-full h-64 p-6 bg-slate-50 border rounded-3xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="E.g. During the sync, we decided Acme needs the MCP module fixed by end of month..."></textarea>
-                        <button onclick="analyzeTranscript()" class="w-full mt-6 py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
-                            ✨ ANALYZE NOTES
-                        </button>
+                        <p class="text-xs text-slate-400 mb-8">Paste meeting transcripts to extract automated product insights.</p>
+                        <textarea id="aiInput" class="w-full h-64 p-6 bg-slate-50 border rounded-3xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="E.g. During the call with Acme, they mentioned that the current Dashboard is slow..."></textarea>
+                        <button onclick="processAI()" class="w-full mt-6 py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:scale-[1.01] active:scale-95 transition-all uppercase tracking-widest text-xs">Analyze Sync Notes</button>
                     </div>
-                    <div id="aiLog" class="space-y-4">
-                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Intelligence Feed</div>
-                        <div class="flex items-center justify-center h-full text-slate-300 italic text-xs border-4 border-dashed rounded-[2.5rem]">
-                            Analysis results will appear here...
+                    <div id="aiOutput" class="flex flex-col items-center justify-center border-4 border-dashed rounded-[2.5rem] bg-slate-50/50 p-10 text-center">
+                        <div class="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center text-indigo-500 mb-4">
+                            <i class="fas fa-robot text-xl"></i>
                         </div>
+                        <p class="text-xs font-bold text-slate-400">AI analysis results will appear here after processing.</p>
                     </div>
                 </div>`;
         }
 
-        let chart;
-        function updateChart() {
-            const canvas = document.getElementById('typeChart');
+        window.processAI = () => {
+            const out = document.getElementById('aiOutput');
+            out.innerHTML = `<div class="animate-pulse text-indigo-600 font-black text-xs">PROBING TRANSCRIPT...</div>`;
+            setTimeout(() => {
+                out.innerHTML = `
+                    <div class="bg-white p-8 rounded-3xl border shadow-sm w-full text-left space-y-4 animate-in">
+                        <div class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Extracted Insights</div>
+                        <div class="space-y-3">
+                            <div class="p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">🎯 <b>Priority:</b> Site Performance mentioned 4 times.</div>
+                            <div class="p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">⚠️ <b>Risk:</b> High churn probability for Acme if Editor is not updated.</div>
+                            <div class="p-3 bg-slate-50 rounded-xl text-xs border border-slate-100">✅ <b>Action:</b> Schedule follow-up for Billing module feedback.</div>
+                        </div>
+                    </div>
+                `;
+            }, 1500);
+        };
+
+        let myChart;
+        function renderChart() {
+            const canvas = document.getElementById('activityChart');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            if (chart) chart.destroy();
-            
-            const moduleData = {};
-            state.requests.forEach(r => moduleData[r.module] = (moduleData[r.module] || 0) + 1);
-            const labels = Object.keys(moduleData).sort((a,b) => moduleData[b] - moduleData[a]).slice(0, 8);
-            
-            chart = new Chart(ctx, {
+            if (myChart) myChart.destroy();
+
+            const active = state.requests.filter(r => r.status !== 'Shipped');
+            const dataMap = {};
+            active.forEach(r => dataMap[r.module] = (dataMap[r.module] || 0) + 1);
+            const labels = Object.keys(dataMap).sort((a,b) => dataMap[b] - dataMap[a]).slice(0, 6);
+
+            myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Requests',
-                        data: labels.map(l => moduleData[l]),
+                        data: labels.map(l => dataMap[l]),
                         backgroundColor: '#6366f1',
-                        borderRadius: 8
+                        borderRadius: 6
                     }]
                 },
                 options: {
+                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }
+                    scales: { 
+                        x: { grid: { display: false }, ticks: { stepSize: 1, color: '#94a3b8', font: { size: 10 } } },
+                        y: { grid: { display: false }, ticks: { color: '#475569', font: { weight: 'bold', size: 10 } } }
+                    }
                 }
             });
         }
 
         window.onload = () => {
             initAuth();
-            document.getElementById('requestForm').onsubmit = window.saveRequest;
-            // Immediate initial render for shell
+            document.getElementById('featureForm').onsubmit = window.saveRequest;
             render();
         };
     </script>
@@ -337,137 +346,133 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .animate-in { animation: slideUp 0.4s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .animate-in { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-[#f8fafc] min-h-screen text-slate-900 pb-20">
+<body class="bg-[#fcfdfe] min-h-screen text-slate-800 pb-20">
 
-    <!-- Navbar -->
-    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b px-8 py-5 flex flex-wrap gap-4 justify-between items-center">
+    <!-- Header / Nav -->
+    <nav class="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b px-8 py-5 flex items-center justify-between">
         <div class="flex items-center gap-4">
-            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                <i class="fas fa-layer-group"></i>
+            <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white text-lg">
+                <i class="fas fa-chess-knight"></i>
             </div>
             <div>
                 <h1 class="text-lg font-black tracking-tighter">Strategic<span class="text-indigo-600">Pulse</span></h1>
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enterprise Feature Intelligence</p>
             </div>
         </div>
-        <div class="flex items-center gap-4 lg:gap-6">
-            <div class="flex gap-1 bg-slate-100 p-1 rounded-xl border">
-                <button id="tab-backlog" onclick="switchTab('backlog')" class="px-4 lg:px-6 py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all">Backlog</button>
-                <button id="tab-roadmap" onclick="switchTab('roadmap')" class="px-4 lg:px-6 py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all">Roadmap</button>
-                <button id="tab-calls" onclick="switchTab('calls')" class="px-4 lg:px-6 py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all">Calls</button>
+        
+        <div class="flex items-center gap-6">
+            <div class="bg-slate-100 p-1 rounded-xl flex gap-1 border">
+                <button id="tab-backlog" onclick="switchTab('backlog')" class="px-5 py-2 rounded-lg text-xs font-bold transition-all">Backlog</button>
+                <button id="tab-roadmap" onclick="switchTab('roadmap')" class="px-5 py-2 rounded-lg text-xs font-bold transition-all">Roadmap</button>
+                <button id="tab-calls" onclick="switchTab('calls')" class="px-5 py-2 rounded-lg text-xs font-bold transition-all">Calls</button>
             </div>
-            <button onclick="toggleDrawer()" class="px-5 py-2.5 bg-slate-900 text-white text-[10px] lg:text-xs font-black rounded-xl hover:shadow-xl transition-all">
-                <i class="fas fa-plus mr-2"></i>Log Request
+            <button onclick="toggleDrawer()" class="px-6 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl hover:shadow-lg hover:bg-indigo-700 transition-all">
+                <i class="fas fa-plus mr-2"></i>LOG REQUEST
             </button>
         </div>
     </nav>
 
-    <!-- Header Stats -->
+    <!-- Stats Bar -->
     <header class="max-w-7xl mx-auto px-8 py-10">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white p-8 rounded-[2rem] border shadow-sm group hover:border-indigo-200 transition-all">
-                <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Open Requests</div>
+            <div class="bg-white p-8 rounded-[2.5rem] border shadow-sm">
+                <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Requests</div>
                 <div id="stat-count" class="text-5xl font-black">0</div>
             </div>
-            <div class="bg-white p-8 rounded-[2rem] border shadow-sm group hover:border-emerald-200 transition-all">
-                <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Revenue Impact (Risk)</div>
+            <div class="bg-white p-8 rounded-[2.5rem] border shadow-sm">
+                <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Revenue At Risk</div>
                 <div id="stat-mrr" class="text-5xl font-black text-emerald-600">$0k</div>
             </div>
-            <div class="bg-white p-8 rounded-[2rem] border shadow-sm border-l-8 border-indigo-600 group hover:bg-indigo-50 transition-all">
-                <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Critical Blockers</div>
-                <div id="stat-crit" class="text-5xl font-black text-indigo-600">0</div>
+            <div class="bg-white p-8 rounded-[2.5rem] border shadow-sm">
+                <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Critical Blockers</div>
+                <div id="stat-crit" class="text-5xl font-black text-red-500">0</div>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main id="content" class="max-w-7xl mx-auto px-8 min-h-[500px]">
-        <!-- Initial Loader Shell -->
-        <div class="w-full py-20 flex flex-col items-center justify-center text-slate-300">
-            <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p class="text-xs font-bold uppercase tracking-widest">Connecting to Pulse Intel...</p>
+    <!-- Dynamic Content -->
+    <main id="mainContent" class="max-w-7xl mx-auto px-8 min-h-[400px]">
+        <div class="flex items-center justify-center h-64 text-slate-300">
+            <i class="fas fa-circle-notch animate-spin text-2xl"></i>
         </div>
     </main>
 
-    <!-- Small Footer Chart -->
+    <!-- Bottom Metrics -->
     <section class="max-w-7xl mx-auto px-8 mt-12">
-        <div class="bg-white p-10 rounded-[2.5rem] border shadow-sm">
-            <div class="flex justify-between items-center mb-8">
-                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requests by Module</h4>
-                <div class="text-[10px] font-bold text-indigo-600">Real-time Visualization</div>
+        <div class="bg-white p-10 rounded-[3rem] border shadow-sm grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <div class="lg:col-span-2">
+                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Request Distribution</h4>
+                <div class="h-40">
+                    <canvas id="activityChart"></canvas>
+                </div>
             </div>
-            <div class="h-48">
-                <canvas id="typeChart"></canvas>
+            <div class="flex flex-col justify-center bg-slate-50 p-8 rounded-[2rem] border">
+                <div class="text-[10px] font-black text-indigo-600 uppercase mb-4">Pro-Tip</div>
+                <p class="text-xs text-slate-600 leading-relaxed italic">
+                    Use the "Roadmap" tab to identify which modules have the highest combined MRR risk from active customers.
+                </p>
             </div>
         </div>
     </section>
 
-    <!-- Form Drawer -->
-    <div id="drawer" class="fixed inset-y-0 right-0 w-full max-w-xl bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-500 border-l">
-        <div class="p-12 h-full flex flex-col overflow-y-auto">
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-3xl font-black">Data Entry</h2>
-                <button onclick="toggleDrawer()" class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center">
-                    <i class="fas fa-times"></i>
+    <!-- Slide-out Drawer -->
+    <div id="drawer" class="fixed inset-y-0 right-0 w-full max-w-xl bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-500 border-l overflow-y-auto">
+        <div class="p-12">
+            <div class="flex justify-between items-center mb-10">
+                <h2 class="text-3xl font-black tracking-tighter">Entry Panel</h2>
+                <button onclick="toggleDrawer()" class="w-10 h-10 hover:bg-slate-100 rounded-full flex items-center justify-center text-slate-400 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
 
-            <!-- CSV IMPORT SECTION -->
-            <div class="mb-10 p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
-                <label class="text-[10px] font-black text-indigo-600 uppercase mb-2 block">Bulk Import (CSV Format)</label>
-                <p class="text-[9px] text-indigo-400 mb-3">Format: Customer, MRR, Module, Priority, Description (One per line)</p>
-                <textarea id="csvInput" rows="3" class="w-full p-4 bg-white border rounded-2xl text-xs outline-none mb-3" placeholder="Google, 50000, AI Search Suite, Critical, Needs faster indexing"></textarea>
-                <button id="csvBtn" onclick="importCSV()" class="w-full py-3 bg-indigo-600 text-white text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-all uppercase">Import CSV</button>
+            <!-- Bulk Section -->
+            <div class="bg-indigo-50/50 border border-indigo-100 p-8 rounded-3xl mb-10">
+                <div class="flex justify-between items-center mb-4">
+                    <label class="text-[10px] font-black text-indigo-600 uppercase">Bulk CSV Import</label>
+                    <span class="text-[9px] text-indigo-400 bg-white px-2 py-0.5 rounded border">Format: Name, MRR, Module, Priority</span>
+                </div>
+                <textarea id="csvInput" rows="3" class="w-full bg-white border border-indigo-100 rounded-2xl p-4 text-xs outline-none focus:ring-2 focus:ring-indigo-400 transition-all mb-4" placeholder="Acme, 12000, AI Writer Suite, High"></textarea>
+                <button id="csvBtn" onclick="importCSV()" class="w-full py-3 bg-indigo-600 text-white text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-all">IMPORT CSV</button>
             </div>
 
-            <div class="h-px bg-slate-100 mb-8"></div>
+            <div class="h-px bg-slate-100 mb-10"></div>
 
-            <form id="requestForm" class="space-y-6">
+            <!-- Manual Form -->
+            <form id="featureForm" class="space-y-6">
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Customer Name</label>
-                    <input name="customer" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="e.g. Acme Corp">
+                    <input name="customer" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="e.g. Google Cloud">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">MRR Impact ($)</label>
-                        <input name="mrr" type="number" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="5000">
+                        <input name="mrr" type="number" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="5000">
                     </div>
                     <div>
                         <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Priority</label>
-                        <select name="priority" class="w-full p-4 bg-slate-50 border rounded-2xl text-sm">
-                            <option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
+                        <select name="priority" class="w-full p-4 bg-slate-50 border rounded-2xl text-sm outline-none focus:bg-white cursor-pointer">
+                            <option>Low</option>
+                            <option selected>Medium</option>
+                            <option>High</option>
+                            <option>Critical</option>
                         </select>
                     </div>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Module</label>
-                    <select name="module" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm">
-                        <script>
-                            const list = [
-                                "AI Premium Suite", "AI Search Suite", "AI Writer Suite", "Analytics", "API Documentation", 
-                                "Article Management", "Article Review Reminders", "Authentication", "Billing", "Bulk Operations", 
-                                "Category Management", "Content Reuse", "Custom Pages", "Dashboard", "Editor - Advanced", 
-                                "Feedback Manager", "Glossary", "Import/Export", "Integrations", "KB Assistant", "MCP", 
-                                "Notifications", "Readers & Groups", "Roles & Permissions", "Sandbox", "Search", "SEO", 
-                                "Site Performance", "Ticket Deflectors", "UI/UX", "Workflow Designer", "Workspace Manager"
-                            ].sort();
-                            document.write(list.map(m => `<option value="${m}">${m}</option>`).join(''));
-                        </script>
+                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Enterprise Module</label>
+                    <select id="moduleSelect" name="module" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm outline-none focus:bg-white cursor-pointer">
+                        <option value="">Loading modules...</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Description</label>
-                    <textarea name="description" rows="4" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="Describe the feature request..."></textarea>
+                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Requirement Details</label>
+                    <textarea name="description" rows="4" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="What specifically are they asking for?"></textarea>
                 </div>
-                <button type="submit" class="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all">SAVE REQUEST</button>
+                <button type="submit" class="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:scale-[1.01] active:scale-95 transition-all uppercase tracking-widest text-xs">Save Request</button>
             </form>
         </div>
     </div>
