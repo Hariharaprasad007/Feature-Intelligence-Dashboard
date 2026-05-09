@@ -1,436 +1,733 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Strategic Pulse | Enterprise Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
-        .drawer-transition { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
-        .active-tab { background: white; color: #4f46e5; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-        select { appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
-    </style>
-</head>
-<body class="text-slate-900 overflow-x-hidden">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strategic Pulse</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Auth & Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="text-xs font-black uppercase tracking-widest text-slate-400">Securing Connection...</p>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            primary: '#4f46e5', // indigo-600
+            background: '#f8fafc', // slate-50
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #f8fafc;
+      /* subtle pattern or gradient could go here */
+      background-image: radial-gradient(circle at top right, #e2e8f0 0%, transparent 20%), radial-gradient(circle at bottom left, #e2e8f0 0%, transparent 20%);
+      background-attachment: fixed;
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+    }
+    .card {
+      border-radius: 2rem; /* 32px */
+    }
+    
+    /* Animations */
+    .animate-in {
+      animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    
+    @keyframes fadeIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .pulse-dot {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Securing Connection Overlay -->
+  <div id="auth-overlay" class="fixed inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center transition-opacity duration-700">
+    <div class="text-indigo-400 mb-4 text-4xl"><i class="fa-solid fa-shield-halved fa-beat"></i></div>
+    <h2 class="text-white text-2xl font-black tracking-tight mb-2">Strategic Pulse</h2>
+    <p class="text-slate-400 text-sm">Securing enterprise connection...</p>
+    <div class="w-48 h-1 bg-slate-800 rounded-full mt-6 overflow-hidden">
+      <div class="h-full bg-indigo-500 w-1/2 animate-[pulse_1s_ease-in-out_infinite] rounded-full"></div>
+    </div>
+    <!-- Allow bypass if they don't have config -->
+    <button onclick="App.bypassAuth()" class="mt-8 text-xs text-slate-500 hover:text-slate-300 underline">Continue without Firebase (Mock Mode)</button>
+  </div>
+
+  <!-- Sticky Top Nav -->
+  <nav class="sticky top-0 z-30 glass px-6 py-4 flex items-center justify-between border-b border-white/40">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+        <i class="fa-solid fa-chart-line"></i>
+      </div>
+      <h1 class="text-xl font-extrabold tracking-tight text-slate-900">Strategic Pulse</h1>
+      
+      <!-- Status Badge -->
+      <div id="status-badge" class="ml-4 flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-amber-600 text-xs font-semibold">
+        <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+        <span id="status-text">Connecting...</span>
+      </div>
     </div>
 
-    <!-- Navigation -->
-    <nav class="sticky top-0 z-40 glass-card px-8 py-4 flex items-center justify-between border-b">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                <i class="fas fa-bolt"></i>
-            </div>
-            <div>
-                <h1 class="text-lg font-extrabold tracking-tighter">Strategic<span class="text-indigo-600">Pulse</span></h1>
-                <div id="authBadge" class="text-[8px] font-bold text-amber-500 uppercase">Connecting...</div>
-            </div>
+    <!-- Tab Switcher -->
+    <div class="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50 backdrop-blur-sm">
+      <button onclick="App.switchTab('backlog')" id="tab-backlog" class="px-5 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700">Backlog</button>
+      <button onclick="App.switchTab('roadmap')" id="tab-roadmap" class="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">Roadmap</button>
+      <button onclick="App.switchTab('call-intel')" id="tab-call-intel" class="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">Call Intel</button>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-3">
+      <button onclick="App.toggleDrawer()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2">
+        <i class="fa-solid fa-plus"></i> Log Request
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Header Stats -->
+  <header class="px-8 py-8 max-w-7xl mx-auto w-full">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Stat Card 1 -->
+      <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-slate-500 text-sm font-bold uppercase tracking-wider">Total Backlog</span>
+          <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-layer-group text-xs"></i></div>
         </div>
-
-        <div class="flex items-center gap-4">
-            <div class="bg-slate-100 p-1 rounded-xl flex gap-1 border">
-                <button onclick="App.switchTab('backlog')" id="tab-backlog" class="px-4 py-2 rounded-lg text-xs font-bold transition-all active-tab">Backlog</button>
-                <button onclick="App.switchTab('roadmap')" id="tab-roadmap" class="px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-500">Roadmap</button>
-                <button onclick="App.switchTab('calls')" id="tab-calls" class="px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-500">Call Intelligence</button>
-            </div>
-            <button onclick="App.toggleDrawer(true)" class="px-6 py-2.5 bg-slate-900 text-white text-xs font-black rounded-xl hover:bg-black transition-all flex items-center gap-2">
-                <i class="fas fa-plus"></i> LOG REQUEST
-            </button>
+        <div class="text-4xl font-black text-slate-900" id="stat-total-backlog">--</div>
+      </div>
+      <!-- Stat Card 2 -->
+      <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-slate-500 text-sm font-bold uppercase tracking-wider">MRR Impact</span>
+          <div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-sack-dollar text-xs"></i></div>
         </div>
-    </nav>
-
-    <!-- Header Stats -->
-    <header class="max-w-7xl mx-auto px-8 py-8">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white p-6 rounded-3xl border shadow-sm">
-                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Total Backlog</p>
-                <div id="stat-count" class="text-4xl font-extrabold">0</div>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border shadow-sm">
-                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">MRR Impact</p>
-                <div id="stat-mrr" class="text-4xl font-extrabold text-indigo-600">$0</div>
-            </div>
-            <div class="bg-white p-6 rounded-3xl border shadow-sm">
-                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Critical Needs</p>
-                <div id="stat-crit" class="text-4xl font-extrabold text-red-500">0</div>
-            </div>
+        <div class="text-4xl font-black text-emerald-600" id="stat-mrr-impact">$0k</div>
+      </div>
+      <!-- Stat Card 3 -->
+      <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300 relative overflow-hidden">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-rose-50 rounded-full blur-2xl z-0"></div>
+        <div class="flex items-center justify-between mb-4 relative z-10">
+          <span class="text-slate-500 text-sm font-bold uppercase tracking-wider">Critical Needs</span>
+          <div class="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation text-xs pulse-dot"></i></div>
         </div>
-    </header>
+        <div class="text-4xl font-black text-rose-600 relative z-10" id="stat-critical-needs">--</div>
+      </div>
+    </div>
+  </header>
 
-    <!-- Main View -->
-    <main id="viewContainer" class="max-w-7xl mx-auto px-8 pb-20"></main>
+  <!-- Main Content Area -->
+  <main class="flex-1 px-8 pb-12 max-w-7xl mx-auto w-full relative">
+    
+    <!-- View: Backlog -->
+    <div id="view-backlog" class="animate-in w-full">
+      <div class="glass card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200/50 bg-slate-50/50 text-xs uppercase tracking-wider font-bold text-slate-500">
+                <th class="p-4 pl-6">Customer</th>
+                <th class="p-4">Description</th>
+                <th class="p-4">Priority</th>
+                <th class="p-4">Module</th>
+                <th class="p-4">MRR Value</th>
+                <th class="p-4 pr-6">Status</th>
+              </tr>
+            </thead>
+            <tbody id="backlog-tbody" class="divide-y divide-slate-100">
+              <!-- Rows will be injected here -->
+            </tbody>
+          </table>
+        </div>
+        <!-- Empty State -->
+        <div id="backlog-empty" class="hidden p-12 text-center flex-col items-center justify-center">
+          <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 text-2xl mx-auto mb-4">
+            <i class="fa-solid fa-inbox"></i>
+          </div>
+          <h3 class="text-lg font-bold text-slate-700">No requests logged yet</h3>
+          <p class="text-slate-500 mt-1">Start by clicking 'Log Request' in the top right.</p>
+        </div>
+      </div>
+    </div>
 
-    <!-- Drawer Overlay -->
-    <div id="drawerOverlay" onclick="App.toggleDrawer(false)" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity"></div>
+    <!-- View: Roadmap -->
+    <div id="view-roadmap" class="hidden w-full">
+      <div id="roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Cards injected here -->
+      </div>
+    </div>
 
-    <!-- Log Drawer -->
-    <aside id="drawer" class="fixed inset-y-0 right-0 w-full max-w-lg bg-white z-[60] shadow-2xl translate-x-full drawer-transition flex flex-col">
-        <div class="p-8 border-b flex justify-between items-center">
-            <h2 class="text-2xl font-black tracking-tight">Log Requirement</h2>
-            <button onclick="App.toggleDrawer(false)" class="text-slate-400 hover:text-slate-900 transition-colors">
-                <i class="fas fa-times text-xl"></i>
-            </button>
+    <!-- View: Call Intelligence -->
+    <div id="view-call-intel" class="hidden w-full h-full min-h-[500px]">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+        <!-- Left: Input -->
+        <div class="glass card p-6 flex flex-col h-full">
+          <h3 class="text-lg font-black text-slate-800 mb-2">Meeting Transcript</h3>
+          <p class="text-sm text-slate-500 mb-4">Paste transcript here to extract feature requests and sentiment.</p>
+          <textarea id="intel-input" class="w-full flex-1 bg-white border border-slate-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono" placeholder="[00:00:15] Customer: We really need a way to export these reports to PDF. If we don't get that soon, we might have to look at other tools..."></textarea>
+          <button onclick="App.analyzeTranscript(event)" class="mt-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors w-full flex items-center justify-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Transcript
+          </button>
+        </div>
+        <!-- Right: Results -->
+        <div class="glass card p-6 flex flex-col bg-indigo-50/30">
+          <h3 class="text-lg font-black text-slate-800 mb-4">AI Analysis</h3>
+          <div id="intel-results" class="flex-1 flex flex-col items-center justify-center text-center">
+            <div class="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center text-indigo-300 text-2xl mb-4">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <p class="text-slate-500 text-sm">Awaiting transcript...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Slide-out Drawer for Data Entry -->
+  <div id="drawer-backdrop" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 hidden transition-opacity opacity-0" onclick="App.toggleDrawer()"></div>
+  <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-slate-100">
+    <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      <h2 class="text-xl font-black text-slate-800">Log New Request</h2>
+      <button onclick="App.toggleDrawer()" class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    
+    <div class="flex-1 overflow-y-auto p-6">
+      
+      <!-- Tabs within Drawer -->
+      <div class="flex border-b border-slate-200 mb-6">
+        <button onclick="App.switchDrawerTab('manual')" id="drawertab-manual" class="px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm">Manual Entry</button>
+        <button onclick="App.switchDrawerTab('bulk')" id="drawertab-bulk" class="px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-sm">Bulk Import</button>
+      </div>
+
+      <!-- Manual Form -->
+      <form id="form-manual" onsubmit="App.submitManual(event)" class="space-y-5">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Customer Name</label>
+          <input required type="text" id="input-customer" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Acme Corp">
         </div>
         
-        <div class="flex-1 overflow-y-auto p-8 space-y-10">
-            <!-- CSV Block -->
-            <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                <h3 class="text-[10px] font-black text-indigo-600 uppercase mb-4 tracking-widest">Bulk Import (CSV)</h3>
-                <textarea id="csvInput" rows="3" class="w-full bg-white border border-slate-200 rounded-xl p-4 text-xs outline-none mb-3" placeholder="Acme Corp, 5000, AI Writer, High, Description here..."></textarea>
-                <button id="importBtn" onclick="App.handleCSV()" class="w-full py-3 bg-white border-2 border-indigo-600 text-indigo-600 font-black text-[10px] rounded-xl hover:bg-indigo-50 transition-all uppercase">Process CSV Lines</button>
-            </div>
-
-            <div class="relative"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-100"></div></div><div class="relative flex justify-center text-[10px] uppercase font-bold text-slate-300 bg-white px-2">Or Manual Entry</div></div>
-
-            <!-- Form Block -->
-            <form id="requestForm" class="space-y-6 pb-10">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2">
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Customer Name</label>
-                        <input name="customer" required class="w-full p-4 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Enter Account Name">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">MRR ($)</label>
-                        <input name="mrr" type="number" required class="w-full p-4 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Value">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Priority</label>
-                        <select name="priority" class="w-full p-4 bg-slate-50 border rounded-xl text-sm outline-none">
-                            <option>Low</option>
-                            <option selected>Medium</option>
-                            <option>High</option>
-                            <option>Critical</option>
-                        </select>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Product Module</label>
-                        <select id="moduleSelect" name="module" required class="w-full p-4 bg-slate-50 border rounded-xl text-sm outline-none"></select>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Description</label>
-                        <textarea name="description" rows="3" required class="w-full p-4 bg-slate-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Use case details..."></textarea>
-                    </div>
-                </div>
-                <button id="saveBtn" type="submit" disabled class="w-full py-4 bg-indigo-600 text-white font-black rounded-xl shadow-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest text-xs">
-                    Save Request
-                </button>
-            </form>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">MRR Impact ($)</label>
+            <input required type="number" id="input-mrr" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="5000">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Priority</label>
+            <select id="input-priority" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none">
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
         </div>
-    </aside>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Product Module</label>
+          <select id="input-module" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none">
+            <option value="Core Platform">Core Platform</option>
+            <option value="Reporting & Analytics">Reporting & Analytics</option>
+            <option value="Billing">Billing</option>
+            <option value="Integrations">Integrations</option>
+            <option value="User Management">User Management</option>
+            <option value="Security">Security</option>
+            <option value="Mobile App">Mobile App</option>
+          </select>
+        </div>
 
-        // --- Config ---
-        const config = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'feature-tracker-v1';
-        const firebaseApp = initializeApp(config);
-        const auth = getAuth(firebaseApp);
-        const db = getFirestore(firebaseApp);
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Description</label>
+          <textarea required id="input-desc" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none" placeholder="Describe the feature request..."></textarea>
+        </div>
 
-        const MODULES = [
-            "AI Premium Suite", "Analytics", "API Documentation", "Article Management", "Authentication", 
-            "Billing", "Bulk Operations", "Dashboard", "Editor - Advanced", "Feedback Manager", 
-            "Integrations", "KB Assistant", "Notifications", "Roles & Permissions", "Search", "UI/UX"
-        ].sort();
+        <button type="submit" id="btn-save-manual" disabled class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold transition-colors mt-4">
+          Save Request
+        </button>
+      </form>
 
-        // --- Core State Controller ---
-        window.App = {
-            state: {
-                user: null,
-                requests: [],
-                tab: 'backlog',
-                isDrawerOpen: false
-            },
+      <!-- Bulk Import Form -->
+      <form id="form-bulk" onsubmit="App.submitBulk(event)" class="hidden space-y-4 h-full flex flex-col">
+        <p class="text-sm text-slate-500">Paste CSV data here. Format:<br><code class="text-xs bg-slate-100 p-1 rounded">Account, MRR, Module, Priority, Description</code></p>
+        <textarea required id="input-csv" class="w-full flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono whitespace-pre" placeholder="Acme, 5000, Reporting & Analytics, High, Need PDF export..."></textarea>
+        
+        <button type="submit" id="btn-save-bulk" disabled class="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold transition-colors mt-auto">
+          Import CSV
+        </button>
+      </form>
 
-            async init() {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    onAuthStateChanged(auth, (user) => {
-                        this.state.user = user;
-                        if (user) {
-                            this.onAuthSuccess();
-                            this.listen();
-                        }
-                    });
-                } catch (e) {
-                    console.error("Critical Auth Fail:", e);
-                    document.getElementById('authBadge').innerText = "Auth Error - Refresh Page";
-                    document.getElementById('authBadge').classList.replace('text-amber-500', 'text-red-500');
-                }
-            },
+    </div>
+  </div>
 
-            onAuthSuccess() {
-                document.getElementById('authBadge').innerText = "System Live";
-                document.getElementById('authBadge').classList.replace('text-amber-500', 'text-emerald-500');
-                document.getElementById('loadingOverlay').classList.add('opacity-0', 'pointer-events-none');
-                document.getElementById('saveBtn').disabled = false;
-                this.populateModules();
-            },
 
-            listen() {
-                const q = collection(db, 'artifacts', appId, 'public', 'data', 'features');
-                onSnapshot(q, (snap) => {
-                    this.state.requests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    this.render();
-                }, (err) => console.error("Firestore Listen Err:", err));
-            },
+  <!-- Firebase Modular SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-            populateModules() {
-                const el = document.getElementById('moduleSelect');
-                el.innerHTML = MODULES.map(m => `<option value="${m}">${m}</option>`).join('');
-            },
+    // --- Firebase Configuration ---
+    // REPLACE THIS WITH YOUR ACTUAL FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "AIzaSyDummyKeyForPlaceholderOnly",
+      authDomain: "strategic-pulse-placeholder.firebaseapp.com",
+      projectId: "strategic-pulse-placeholder",
+      storageBucket: "strategic-pulse-placeholder.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef123456"
+    };
 
-            toggleDrawer(open) {
-                this.state.isDrawerOpen = open;
-                const drawer = document.getElementById('drawer');
-                const overlay = document.getElementById('drawerOverlay');
-                if (open) {
-                    drawer.classList.remove('translate-x-full');
-                    overlay.classList.remove('hidden');
-                    setTimeout(() => overlay.classList.add('opacity-100'), 10);
-                } else {
-                    drawer.classList.add('translate-x-full');
-                    overlay.classList.remove('opacity-100');
-                    setTimeout(() => overlay.classList.add('hidden'), 400);
-                }
-            },
+    // Global App State & Logic
+    window.App = {
+      isMockMode: false,
+      features: [],
+      currentTab: 'backlog',
+      isDrawerOpen: false,
+      drawerTab: 'manual',
+      
+      // Firebase instances
+      app: null,
+      auth: null,
+      db: null,
 
-            switchTab(tab) {
-                this.state.tab = tab;
-                this.render();
-            },
+      init: function() {
+        try {
+          this.app = initializeApp(firebaseConfig);
+          this.auth = getAuth(this.app);
+          this.db = getFirestore(this.app);
 
-            async saveRequest(e) {
-                e.preventDefault();
-                if (!this.state.user) return;
-                
-                const btn = document.getElementById('saveBtn');
-                btn.disabled = true;
-                btn.innerText = "SAVING...";
-
-                const fd = new FormData(e.target);
-                const data = {
-                    customer: fd.get('customer'),
-                    mrr: parseInt(fd.get('mrr')) || 0,
-                    module: fd.get('module'),
-                    priority: fd.get('priority'),
-                    description: fd.get('description'),
-                    status: 'Logged',
-                    createdAt: serverTimestamp(),
-                    uid: this.state.user.uid
-                };
-
-                try {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'features'), data);
-                    e.target.reset();
-                    this.toggleDrawer(false);
-                } catch (err) {
-                    console.error("Save Error:", err);
-                    alert("Failed to save. Check internet connection.");
-                } finally {
-                    btn.disabled = false;
-                    btn.innerText = "SAVE REQUEST";
-                }
-            },
-
-            async handleCSV() {
-                const val = document.getElementById('csvInput').value;
-                const lines = val.split('\n').filter(l => l.trim().includes(','));
-                if (!lines.length) return;
-
-                const btn = document.getElementById('importBtn');
-                btn.innerText = "IMPORTING...";
-                btn.disabled = true;
-
-                for (const line of lines) {
-                    const [cust, mrr, mod, prio, desc] = line.split(',').map(s => s.trim());
-                    if (cust) {
-                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'features'), {
-                            customer: cust,
-                            mrr: parseInt(mrr) || 0,
-                            module: mod || 'General',
-                            priority: prio || 'Medium',
-                            description: desc || 'Imported via CSV',
-                            status: 'Logged',
-                            createdAt: serverTimestamp(),
-                            uid: this.state.user.uid
-                        });
-                    }
-                }
-                document.getElementById('csvInput').value = '';
-                btn.innerText = "PROCESS CSV LINES";
-                btn.disabled = false;
-                this.toggleDrawer(false);
-            },
-
-            async updateStatus(id, status) {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'features', id), { status });
-            },
-
-            async deleteItem(id) {
-                if (confirm('Delete this request?')) {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'features', id));
-                }
-            },
-
-            render() {
-                const container = document.getElementById('viewContainer');
-                
-                // Update Tabs
-                ['backlog', 'roadmap', 'calls'].forEach(t => {
-                    const btn = document.getElementById(`tab-${t}`);
-                    if (this.state.tab === t) btn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all active-tab";
-                    else btn.className = "px-4 py-2 rounded-lg text-xs font-bold transition-all text-slate-500";
-                });
-
-                // Update Stats
-                const active = this.state.requests.filter(r => r.status !== 'Shipped');
-                const mrr = active.reduce((sum, r) => sum + (r.mrr || 0), 0);
-                const crit = active.filter(r => r.priority === 'Critical').length;
-                document.getElementById('stat-count').innerText = active.length;
-                document.getElementById('stat-mrr').innerText = `$${(mrr/1000).toFixed(1)}k`;
-                document.getElementById('stat-crit').innerText = crit;
-
-                // Render Views
-                if (this.state.tab === 'backlog') this.renderBacklog(container);
-                else if (this.state.tab === 'roadmap') this.renderRoadmap(container);
-                else this.renderCalls(container);
-            },
-
-            renderBacklog(el) {
-                el.innerHTML = `
-                    <div class="bg-white rounded-[2rem] border shadow-sm overflow-hidden animate-in">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-50 border-b">
-                                <tr>
-                                    <th class="p-6 font-black uppercase text-slate-400">Account & Need</th>
-                                    <th class="p-6 font-black uppercase text-slate-400">Module</th>
-                                    <th class="p-6 font-black uppercase text-slate-400">Impact</th>
-                                    <th class="p-6 font-black uppercase text-slate-400">Status</th>
-                                    <th class="p-6 text-right"></th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                ${this.state.requests.length === 0 ? '<tr><td colspan="5" class="p-20 text-center text-slate-300">No requests found. Click "Log Request" to start.</td></tr>' : ''}
-                                ${this.state.requests.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map(r => `
-                                    <tr class="hover:bg-slate-50 transition-colors">
-                                        <td class="p-6">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-2 h-2 rounded-full ${r.priority === 'Critical' ? 'bg-red-500 animate-pulse' : r.priority === 'High' ? 'bg-orange-500' : 'bg-slate-300'}"></div>
-                                                <div>
-                                                    <div class="font-bold text-slate-900">${r.customer}</div>
-                                                    <div class="text-[10px] text-slate-400 line-clamp-1">${r.description}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="p-6"><span class="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md font-bold text-[10px]">${r.module}</span></td>
-                                        <td class="p-6 font-black text-emerald-600">$${(r.mrr || 0).toLocaleString()}</td>
-                                        <td class="p-6">
-                                            <select onchange="App.updateStatus('${r.id}', this.value)" class="text-[10px] font-bold text-indigo-600 bg-transparent border-none outline-none cursor-pointer">
-                                                <option ${r.status === 'Logged' ? 'selected' : ''}>Logged</option>
-                                                <option ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                                                <option ${r.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
-                                            </select>
-                                        </td>
-                                        <td class="p-6 text-right">
-                                            <button onclick="App.deleteItem('${r.id}')" class="text-slate-200 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            },
-
-            renderRoadmap(el) {
-                const active = this.state.requests.filter(r => r.status !== 'Shipped');
-                const groups = {};
-                active.forEach(r => groups[r.module] = (groups[r.module] || 0) + r.mrr);
-                const sorted = Object.entries(groups).sort((a,b) => b[1] - a[1]);
-
-                el.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        ${sorted.map(([name, val], i) => `
-                            <div class="bg-white p-8 rounded-[2rem] border shadow-sm flex flex-col justify-between">
-                                <div>
-                                    <div class="text-[10px] font-black text-indigo-600 uppercase mb-4 tracking-widest">Focus Rank #${i+1}</div>
-                                    <div class="text-2xl font-extrabold mb-2">${name}</div>
-                                    <div class="text-3xl font-black text-emerald-600">$${(val/1000).toFixed(1)}k <span class="text-sm font-normal text-slate-400 italic">MRR Link</span></div>
-                                </div>
-                                <div class="mt-8 pt-6 border-t flex items-center justify-between">
-                                    <div class="text-[10px] text-slate-400 font-bold uppercase">Requests: ${active.filter(r => r.module === name).length}</div>
-                                    <div class="w-12 h-1 bg-indigo-500 rounded-full"></div>
-                                </div>
-                            </div>
-                        `).join('')}
-                        ${sorted.length === 0 ? '<div class="col-span-full py-20 text-center text-slate-400 italic">No revenue data available yet.</div>' : ''}
-                    </div>
-                `;
-            },
-
-            renderCalls(el) {
-                el.innerHTML = `
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="bg-white p-10 rounded-[2.5rem] border shadow-sm">
-                            <h3 class="text-2xl font-black mb-2">Sync Intelligence</h3>
-                            <p class="text-xs text-slate-400 mb-8 leading-relaxed">Paste meeting transcripts or CRM notes to extract automated product insights and revenue sentiment.</p>
-                            <textarea id="callInput" class="w-full h-64 p-6 bg-slate-50 border rounded-3xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="E.g. Acme corp joined the QBR and mentioned they love the analytics but really need better API documentation for their automation team..."></textarea>
-                            <button onclick="App.runAI()" id="aiBtn" class="w-full mt-6 py-4 bg-slate-900 text-white font-black rounded-2xl hover:scale-[1.01] transition-all uppercase tracking-widest text-xs">Analyze Sync</button>
-                        </div>
-                        <div id="aiRes" class="border-4 border-dashed rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center text-slate-300">
-                             <i class="fas fa-microchip text-4xl mb-4"></i>
-                             <p class="text-sm font-bold uppercase tracking-wider">Awaiting Analysis...</p>
-                        </div>
-                    </div>
-                `;
-            },
-
-            runAI() {
-                const btn = document.getElementById('aiBtn');
-                const out = document.getElementById('aiRes');
-                btn.innerText = "DIGESTING TRANSCRIPT...";
-                btn.disabled = true;
-
-                setTimeout(() => {
-                    out.innerHTML = `
-                        <div class="w-full text-left bg-white p-8 rounded-3xl border shadow-sm animate-in">
-                            <div class="text-[10px] font-black text-indigo-600 uppercase mb-4">AI Sentiment Report</div>
-                            <div class="space-y-4">
-                                <div class="p-4 bg-slate-50 rounded-xl text-xs border border-slate-100">🔥 <b>Urgency:</b> High focus on API Documentation for technical stakeholders.</div>
-                                <div class="p-4 bg-slate-50 rounded-xl text-xs border border-slate-100">💰 <b>Revenue Check:</b> Customer implies expansion potential if resolved.</div>
-                                <div class="p-4 bg-slate-50 rounded-xl text-xs border border-slate-100">📋 <b>Action:</b> Create Logged feature for "Developer Portal Enhancements".</div>
-                            </div>
-                        </div>
-                    `;
-                    btn.innerText = "ANALYZE SYNC";
-                    btn.disabled = false;
-                }, 1200);
+          onAuthStateChanged(this.auth, (user) => {
+            if (user) {
+              this.handleAuthSuccess();
+            } else {
+              // Sign in anonymously
+              signInAnonymously(this.auth).catch((error) => {
+                console.error("Auth failed:", error);
+                this.fallbackToMock();
+              });
             }
-        };
+          });
+        } catch (e) {
+          console.error("Firebase init failed:", e);
+          this.fallbackToMock();
+        }
+      },
 
-        // --- Lifecycle ---
-        window.addEventListener('DOMContentLoaded', () => {
-            App.init();
-            document.getElementById('requestForm').onsubmit = (e) => App.saveRequest(e);
+      bypassAuth: function() {
+        this.fallbackToMock();
+      },
+
+      fallbackToMock: function() {
+        console.warn("Using Mock Mode. Data will not persist.");
+        this.isMockMode = true;
+        this.handleAuthSuccess();
+        
+        // Load some dummy data
+        if (this.features.length === 0) {
+          this.features = [
+            { id: '1', customer: 'Acme Corp', mrr: 15000, priority: 'Critical', module: 'Reporting & Analytics', desc: 'Needs ability to schedule automated PDF exports for board meetings.', status: 'Logged' },
+            { id: '2', customer: 'Globex', mrr: 2500, priority: 'Medium', module: 'Integrations', desc: 'Salesforce sync is failing for custom objects.', status: 'In Progress' },
+            { id: '3', customer: 'Initech', mrr: 8000, priority: 'High', module: 'Security', desc: 'SSO via Okta is a hard requirement for Q3 renewal.', status: 'Logged' }
+          ];
+        }
+        this.renderAll();
+      },
+
+      handleAuthSuccess: function() {
+        // Update UI
+        const overlay = document.getElementById('auth-overlay');
+        overlay.classList.add('opacity-0');
+        setTimeout(() => overlay.style.display = 'none', 700);
+
+        const badge = document.getElementById('status-badge');
+        badge.className = "ml-4 flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-semibold";
+        badge.innerHTML = `<div class="w-2 h-2 rounded-full bg-emerald-500"></div><span>System Live</span>`;
+
+        // Enable save buttons
+        document.getElementById('btn-save-manual').disabled = false;
+        document.getElementById('btn-save-bulk').disabled = false;
+
+        if (!this.isMockMode) {
+          this.startSync();
+        }
+      },
+
+      startSync: function() {
+        const q = query(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+          this.features = [];
+          snapshot.forEach((doc) => {
+            this.features.push({ id: doc.id, ...doc.data() });
+          });
+          this.renderAll();
+        }, (error) => {
+          console.error("Sync error:", error);
+          if (error.code === 'permission-denied') {
+             console.warn("Permission denied for Firestore. Falling back to mock.");
+             this.fallbackToMock();
+          }
         });
-    </script>
+      },
+
+      renderAll: function() {
+        this.updateStats();
+        this.renderBacklog();
+        this.renderRoadmap();
+      },
+
+      updateStats: function() {
+        document.getElementById('stat-total-backlog').innerText = this.features.length;
+        
+        const totalMrr = this.features.reduce((sum, f) => sum + Number(f.mrr || 0), 0);
+        document.getElementById('stat-mrr-impact').innerText = \`$\${(totalMrr / 1000).toFixed(1)}k\`;
+
+        const criticalCount = this.features.filter(f => f.priority === 'Critical').length;
+        document.getElementById('stat-critical-needs').innerText = criticalCount;
+      },
+
+      getPriorityColor: function(priority) {
+        switch(priority) {
+          case 'Critical': return { dot: 'bg-rose-500 pulse-dot', text: 'text-rose-700', bg: 'bg-rose-50' };
+          case 'High': return { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' };
+          case 'Medium': return { dot: 'bg-slate-400', text: 'text-slate-700', bg: 'bg-slate-100' };
+          case 'Low': return { dot: 'bg-slate-300', text: 'text-slate-600', bg: 'bg-slate-50' };
+          default: return { dot: 'bg-slate-300', text: 'text-slate-600', bg: 'bg-slate-50' };
+        }
+      },
+
+      renderBacklog: function() {
+        const tbody = document.getElementById('backlog-tbody');
+        const empty = document.getElementById('backlog-empty');
+        
+        if (this.features.length === 0) {
+          tbody.innerHTML = '';
+          empty.classList.remove('hidden');
+          empty.classList.add('flex');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        empty.classList.remove('flex');
+        
+        tbody.innerHTML = this.features.map((f, i) => {
+          const colors = this.getPriorityColor(f.priority);
+          // Apply animation delay for staggering
+          const delay = i * 0.05;
+          
+          return \`
+            <tr class="hover:bg-slate-50/50 transition-colors group animate-in" style="animation-delay: \${delay}s; opacity: 0;">
+              <td class="p-4 pl-6 border-slate-100">
+                <div class="font-bold text-slate-800 text-sm">\${f.customer}</div>
+              </td>
+              <td class="p-4 border-slate-100 max-w-xs">
+                <div class="text-sm text-slate-600 line-clamp-2" title="\${f.desc}">\${f.desc}</div>
+              </td>
+              <td class="p-4 border-slate-100">
+                <div class="flex items-center gap-2 \${colors.bg} \${colors.text} px-2.5 py-1 rounded-full w-max text-xs font-bold border border-white">
+                  <div class="w-1.5 h-1.5 rounded-full \${colors.dot}"></div>
+                  \${f.priority}
+                </div>
+              </td>
+              <td class="p-4 border-slate-100">
+                <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-semibold whitespace-nowrap">\${f.module}</span>
+              </td>
+              <td class="p-4 border-slate-100">
+                <div class="font-mono font-bold text-slate-700 text-sm">$\${Number(f.mrr).toLocaleString()}</div>
+              </td>
+              <td class="p-4 pr-6 border-slate-100">
+                <select onchange="App.updateStatus('\${f.id}', this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+                  <option value="Logged" \${f.status === 'Logged' ? 'selected' : ''}>Logged</option>
+                  <option value="In Progress" \${f.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                  <option value="Shipped" \${f.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+                </select>
+              </td>
+            </tr>
+          \`;
+        }).join('');
+      },
+
+      renderRoadmap: function() {
+        const grid = document.getElementById('roadmap-grid');
+        
+        // Aggregate by module
+        const modules = {};
+        this.features.forEach(f => {
+          if (!modules[f.module]) {
+            modules[f.module] = { module: f.module, mrr: 0, count: 0 };
+          }
+          modules[f.module].mrr += Number(f.mrr);
+          modules[f.module].count += 1;
+        });
+
+        // Sort by MRR descending to get "Focus Rank"
+        const sorted = Object.values(modules).sort((a, b) => b.mrr - a.mrr);
+
+        if (sorted.length === 0) {
+          grid.innerHTML = \`<div class="col-span-full text-center text-slate-400 py-12">No data available for roadmap.</div>\`;
+          return;
+        }
+
+        grid.innerHTML = sorted.map((m, index) => {
+          const rank = index + 1;
+          const rankColor = rank === 1 ? 'text-amber-500 bg-amber-50' : rank === 2 ? 'text-slate-400 bg-slate-50' : 'text-orange-400 bg-orange-50';
+          
+          return \`
+            <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300 animate-in" style="animation-delay: \${index * 0.1}s; opacity: 0;">
+              <div class="flex justify-between items-start mb-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 font-black">
+                    #\${rank}
+                  </div>
+                  <div>
+                    <h3 class="font-extrabold text-lg text-slate-800 leading-tight">\${m.module}</h3>
+                    <p class="text-xs text-slate-500 font-semibold">\${m.count} Requests</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50">
+                <p class="text-xs font-bold text-slate-500 uppercase mb-1">Pipeline MRR</p>
+                <div class="text-2xl font-black text-indigo-700">$\${(m.mrr / 1000).toFixed(1)}k</div>
+              </div>
+            </div>
+          \`;
+        }).join('');
+      },
+
+      switchTab: function(tabId) {
+        this.currentTab = tabId;
+        
+        // Update nav buttons
+        ['backlog', 'roadmap', 'call-intel'].forEach(id => {
+          const btn = document.getElementById(\`tab-\${id}\`);
+          if (id === tabId) {
+            btn.className = "px-5 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700";
+          } else {
+            btn.className = "px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-700 transition-all";
+          }
+        });
+
+        // Update views
+        document.getElementById('view-backlog').classList.add('hidden');
+        document.getElementById('view-roadmap').classList.add('hidden');
+        document.getElementById('view-call-intel').classList.add('hidden');
+
+        const activeView = document.getElementById(\`view-\${tabId}\`);
+        activeView.classList.remove('hidden');
+        
+        // Re-trigger animation
+        activeView.classList.remove('animate-in');
+        void activeView.offsetWidth; // trigger reflow
+        activeView.classList.add('animate-in');
+      },
+
+      toggleDrawer: function() {
+        this.isDrawerOpen = !this.isDrawerOpen;
+        const drawer = document.getElementById('drawer');
+        const backdrop = document.getElementById('drawer-backdrop');
+
+        if (this.isDrawerOpen) {
+          drawer.classList.remove('translate-x-full');
+          backdrop.classList.remove('hidden');
+          // slight delay for opacity transition
+          setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+        } else {
+          drawer.classList.add('translate-x-full');
+          backdrop.classList.add('opacity-0');
+          setTimeout(() => backdrop.classList.add('hidden'), 300);
+        }
+      },
+
+      switchDrawerTab: function(tab) {
+        this.drawerTab = tab;
+        const btnMan = document.getElementById('drawertab-manual');
+        const btnBulk = document.getElementById('drawertab-bulk');
+        const formMan = document.getElementById('form-manual');
+        const formBulk = document.getElementById('form-bulk');
+
+        if (tab === 'manual') {
+          btnMan.className = "px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm";
+          btnBulk.className = "px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-sm";
+          formMan.classList.remove('hidden');
+          formBulk.classList.add('hidden');
+        } else {
+          btnBulk.className = "px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm";
+          btnMan.className = "px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-sm";
+          formBulk.classList.remove('hidden');
+          formBulk.classList.add('flex');
+          formMan.classList.add('hidden');
+        }
+      },
+
+      async addFeature(data) {
+        if (this.isMockMode) {
+          this.features.unshift({
+            id: Date.now().toString() + Math.random().toString(),
+            ...data,
+            status: 'Logged',
+            createdAt: new Date()
+          });
+          this.renderAll();
+          return;
+        }
+
+        try {
+          await addDoc(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), {
+            ...data,
+            status: 'Logged',
+            createdAt: serverTimestamp()
+          });
+        } catch(e) {
+          console.error("Error adding document: ", e);
+          alert("Failed to save. Check console.");
+        }
+      },
+
+      async updateStatus(id, newStatus) {
+        if (this.isMockMode) {
+          const feature = this.features.find(f => f.id === id);
+          if (feature) feature.status = newStatus;
+          return;
+        }
+
+        try {
+          const docRef = doc(this.db, "artifacts/strategic-pulse-v1/public/data/features", id);
+          await updateDoc(docRef, { status: newStatus });
+        } catch(e) {
+          console.error("Error updating document: ", e);
+        }
+      },
+
+      submitManual: function(e) {
+        e.preventDefault();
+        const data = {
+          customer: document.getElementById('input-customer').value,
+          mrr: Number(document.getElementById('input-mrr').value),
+          priority: document.getElementById('input-priority').value,
+          module: document.getElementById('input-module').value,
+          desc: document.getElementById('input-desc').value
+        };
+        
+        this.addFeature(data);
+        e.target.reset();
+        this.toggleDrawer();
+      },
+
+      submitBulk: function(e) {
+        e.preventDefault();
+        const text = document.getElementById('input-csv').value;
+        const lines = text.split('\n');
+        
+        lines.forEach(line => {
+          if (!line.trim()) return;
+          const parts = line.split(',').map(p => p.trim());
+          if (parts.length >= 5) {
+            this.addFeature({
+              customer: parts[0],
+              mrr: Number(parts[1]) || 0,
+              module: parts[2],
+              priority: parts[3],
+              desc: parts.slice(4).join(',')
+            });
+          }
+        });
+
+        e.target.reset();
+        this.toggleDrawer();
+      },
+
+      analyzeTranscript: function(e) {
+        const btn = e.currentTarget;
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = \`<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...\`;
+        btn.disabled = true;
+        
+        const results = document.getElementById('intel-results');
+        
+        // Simulate AI delay
+        setTimeout(() => {
+          btn.innerHTML = origHtml;
+          btn.disabled = false;
+          
+          results.innerHTML = \`
+            <div class="text-left w-full space-y-4 animate-in">
+              <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold text-slate-500 uppercase">Sentiment</span>
+                  <span class="bg-rose-50 text-rose-600 text-xs font-bold px-2 py-1 rounded">Frustrated / At-Risk</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full" style="width: 85%"></div></div>
+              </div>
+              
+              <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm">
+                <div class="text-xs font-bold text-slate-500 uppercase mb-2">Extracted Feature Need</div>
+                <p class="text-sm font-bold text-slate-800">Automated PDF Exports</p>
+                <p class="text-xs text-slate-500 mt-1">Module: Reporting & Analytics</p>
+              </div>
+
+              <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm">
+                <div class="text-xs font-bold text-slate-500 uppercase mb-1">Revenue Expansion Potential</div>
+                <div class="text-2xl font-black text-emerald-600">High</div>
+                <p class="text-xs text-slate-500">Feature could unlock higher tier upgrade.</p>
+              </div>
+              
+              <button onclick="App.populateFromIntel()" class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-bold rounded-xl transition-colors mt-2">
+                Draft as Feature Request
+              </button>
+            </div>
+          \`;
+        }, 1500);
+      },
+
+      populateFromIntel: function() {
+        this.toggleDrawer();
+        this.switchDrawerTab('manual');
+        document.getElementById('input-desc').value = "Requires automated PDF exports for reporting.";
+        document.getElementById('input-priority').value = "Critical";
+        document.getElementById('input-module').value = "Reporting & Analytics";
+      }
+    };
+
+    // Initialize on load
+    window.onload = () => App.init();
+
+  </script>
 </body>
 </html>
