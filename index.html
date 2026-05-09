@@ -11,7 +11,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
         // Environment variables provided by the container
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
@@ -37,7 +37,8 @@
             requests: [],
             currentTab: 'backlog',
             filter: '',
-            aiLoading: false
+            aiLoading: false,
+            initialLoadComplete: false
         };
 
         // --- AUTHENTICATION ---
@@ -62,10 +63,10 @@
 
         // --- DATA ---
         function setupListeners() {
-            // Path: /artifacts/{appId}/public/data/feature_requests
             const q = collection(db, 'artifacts', appId, 'public', 'data', 'feature_requests');
             onSnapshot(q, (snapshot) => {
                 state.requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                state.initialLoadComplete = true;
                 render();
             }, (err) => console.error("Firestore Error:", err));
         }
@@ -90,6 +91,46 @@
             toggleDrawer();
         };
 
+        window.importCSV = async () => {
+            const area = document.getElementById('csvInput');
+            const lines = area.value.split('\n').filter(line => line.trim() !== '');
+            if (!lines.length || !state.user) return;
+
+            const btn = document.getElementById('csvBtn');
+            btn.innerText = "Importing...";
+            btn.disabled = true;
+
+            try {
+                // Using individual addDoc for simplicity in this logic
+                for (const line of lines) {
+                    const [customer, mrr, module, priority, ...descParts] = line.split(',');
+                    const description = descParts.join(','); // In case desc has commas
+                    
+                    if (customer && module) {
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feature_requests'), {
+                            customer: customer.trim(),
+                            mrr: parseFloat(mrr) || 0,
+                            module: module.trim(),
+                            priority: priority?.trim() || 'Medium',
+                            description: description?.trim() || 'Imported via CSV',
+                            status: 'Logged',
+                            createdAt: Date.now(),
+                            userId: state.user.uid
+                        });
+                    }
+                }
+                area.value = '';
+                toggleDrawer();
+                alert('Import successful!');
+            } catch (err) {
+                alert('Import failed. Check console.');
+                console.error(err);
+            } finally {
+                btn.innerText = "IMPORT CSV";
+                btn.disabled = false;
+            }
+        };
+
         window.updateStatus = async (id, status) => {
             const ref = doc(db, 'artifacts', appId, 'public', 'data', 'feature_requests', id);
             await updateDoc(ref, { status });
@@ -110,17 +151,15 @@
             document.getElementById('drawer').classList.toggle('translate-x-full');
         };
 
-        // --- AI FEATURES ---
         window.analyzeTranscript = () => {
             const text = document.getElementById('transcriptInput').value;
             if (!text) return;
             const log = document.getElementById('aiLog');
             log.innerHTML = `<div class="p-4 bg-indigo-50 animate-pulse text-xs">Analyzing sync notes...</div>`;
             
-            // Simulation of intelligence extraction logic
             setTimeout(() => {
                 log.innerHTML = `
-                    <div class="bg-white border rounded-xl p-4 shadow-sm space-y-3">
+                    <div class="bg-white border rounded-xl p-4 shadow-sm space-y-3 animate-in">
                         <div class="text-[10px] font-black text-indigo-600 uppercase">Extracted Insights</div>
                         <ul class="text-xs space-y-2 text-slate-600">
                             <li>🎯 <b>Decision:</b> Prioritize 'MCP' improvements for Q3.</li>
@@ -136,12 +175,27 @@
         function render() {
             const main = document.getElementById('content');
             updateStats();
+            updateNavUI();
             
             if (state.currentTab === 'backlog') renderBacklog(main);
             else if (state.currentTab === 'roadmap') renderRoadmap(main);
             else renderCalls(main);
             
             updateChart();
+        }
+
+        function updateNavUI() {
+            const tabs = ['backlog', 'roadmap', 'calls'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) {
+                    if (state.currentTab === t) {
+                        btn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+                    } else {
+                        btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+                    }
+                }
+            });
         }
 
         function updateStats() {
@@ -169,7 +223,7 @@
                         </thead>
                         <tbody class="divide-y">
                             ${state.requests.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-slate-400">No requests found. Click "Log Request" to start.</td></tr>' : ''}
-                            ${state.requests.map(r => `
+                            ${state.requests.sort((a,b) => b.createdAt - a.createdAt).map(r => `
                                 <tr class="hover:bg-slate-50 transition-colors ${r.status === 'Shipped' ? 'opacity-40' : ''}">
                                     <td class="p-5">
                                         <div class="font-bold text-slate-900">${r.customer}</div>
@@ -243,13 +297,14 @@
 
         let chart;
         function updateChart() {
-            const ctx = document.getElementById('typeChart')?.getContext('2d');
-            if (!ctx) return;
+            const canvas = document.getElementById('typeChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             if (chart) chart.destroy();
             
             const moduleData = {};
             state.requests.forEach(r => moduleData[r.module] = (moduleData[r.module] || 0) + 1);
-            const labels = Object.keys(moduleData).slice(0, 8);
+            const labels = Object.keys(moduleData).sort((a,b) => moduleData[b] - moduleData[a]).slice(0, 8);
             
             chart = new Chart(ctx, {
                 type: 'bar',
@@ -266,7 +321,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } }
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }
                 }
             });
         }
@@ -274,20 +329,26 @@
         window.onload = () => {
             initAuth();
             document.getElementById('requestForm').onsubmit = window.saveRequest;
+            // Immediate initial render for shell
+            render();
         };
     </script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .animate-in { animation: slideUp 0.5s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: slideUp 0.4s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     </style>
 </head>
 <body class="bg-[#f8fafc] min-h-screen text-slate-900 pb-20">
 
     <!-- Navbar -->
-    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b px-8 py-5 flex justify-between items-center">
+    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b px-8 py-5 flex flex-wrap gap-4 justify-between items-center">
         <div class="flex items-center gap-4">
             <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
                 <i class="fas fa-layer-group"></i>
@@ -297,13 +358,13 @@
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enterprise Feature Intelligence</p>
             </div>
         </div>
-        <div class="flex items-center gap-6">
-            <div class="hidden md:flex gap-1 bg-slate-100 p-1 rounded-xl border">
-                <button onclick="switchTab('backlog')" class="px-6 py-2 rounded-lg text-xs font-black transition-all hover:text-indigo-600">Backlog</button>
-                <button onclick="switchTab('roadmap')" class="px-6 py-2 rounded-lg text-xs font-black transition-all hover:text-indigo-600">Roadmap</button>
-                <button onclick="switchTab('calls')" class="px-6 py-2 rounded-lg text-xs font-black transition-all hover:text-indigo-600">Calls</button>
+        <div class="flex items-center gap-4 lg:gap-6">
+            <div class="flex gap-1 bg-slate-100 p-1 rounded-xl border">
+                <button id="tab-backlog" onclick="switchTab('backlog')" class="px-4 lg:px-6 py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all">Backlog</button>
+                <button id="tab-roadmap" onclick="switchTab('roadmap')" class="px-4 lg:px-6 py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all">Roadmap</button>
+                <button id="tab-calls" onclick="switchTab('calls')" class="px-4 lg:px-6 py-2 rounded-lg text-[10px] lg:text-xs font-black transition-all">Calls</button>
             </div>
-            <button onclick="toggleDrawer()" class="px-5 py-2.5 bg-slate-900 text-white text-xs font-black rounded-xl hover:shadow-xl transition-all">
+            <button onclick="toggleDrawer()" class="px-5 py-2.5 bg-slate-900 text-white text-[10px] lg:text-xs font-black rounded-xl hover:shadow-xl transition-all">
                 <i class="fas fa-plus mr-2"></i>Log Request
             </button>
         </div>
@@ -312,15 +373,15 @@
     <!-- Header Stats -->
     <header class="max-w-7xl mx-auto px-8 py-10">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white p-8 rounded-[2rem] border shadow-sm">
+            <div class="bg-white p-8 rounded-[2rem] border shadow-sm group hover:border-indigo-200 transition-all">
                 <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Open Requests</div>
                 <div id="stat-count" class="text-5xl font-black">0</div>
             </div>
-            <div class="bg-white p-8 rounded-[2rem] border shadow-sm">
+            <div class="bg-white p-8 rounded-[2rem] border shadow-sm group hover:border-emerald-200 transition-all">
                 <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Revenue Impact (Risk)</div>
                 <div id="stat-mrr" class="text-5xl font-black text-emerald-600">$0k</div>
             </div>
-            <div class="bg-white p-8 rounded-[2rem] border shadow-sm border-l-8 border-indigo-600">
+            <div class="bg-white p-8 rounded-[2rem] border shadow-sm border-l-8 border-indigo-600 group hover:bg-indigo-50 transition-all">
                 <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Critical Blockers</div>
                 <div id="stat-crit" class="text-5xl font-black text-indigo-600">0</div>
             </div>
@@ -329,13 +390,20 @@
 
     <!-- Main Content -->
     <main id="content" class="max-w-7xl mx-auto px-8 min-h-[500px]">
-        <!-- Content injected by JS -->
+        <!-- Initial Loader Shell -->
+        <div class="w-full py-20 flex flex-col items-center justify-center text-slate-300">
+            <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-xs font-bold uppercase tracking-widest">Connecting to Pulse Intel...</p>
+        </div>
     </main>
 
     <!-- Small Footer Chart -->
     <section class="max-w-7xl mx-auto px-8 mt-12">
         <div class="bg-white p-10 rounded-[2.5rem] border shadow-sm">
-            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">Requests by Module</h4>
+            <div class="flex justify-between items-center mb-8">
+                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requests by Module</h4>
+                <div class="text-[10px] font-bold text-indigo-600">Real-time Visualization</div>
+            </div>
             <div class="h-48">
                 <canvas id="typeChart"></canvas>
             </div>
@@ -344,14 +412,25 @@
 
     <!-- Form Drawer -->
     <div id="drawer" class="fixed inset-y-0 right-0 w-full max-w-xl bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-500 border-l">
-        <div class="p-12 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-12">
-                <h2 class="text-3xl font-black">Log Request</h2>
+        <div class="p-12 h-full flex flex-col overflow-y-auto">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-black">Data Entry</h2>
                 <button onclick="toggleDrawer()" class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <form id="requestForm" class="space-y-6 overflow-y-auto pr-4">
+
+            <!-- CSV IMPORT SECTION -->
+            <div class="mb-10 p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
+                <label class="text-[10px] font-black text-indigo-600 uppercase mb-2 block">Bulk Import (CSV Format)</label>
+                <p class="text-[9px] text-indigo-400 mb-3">Format: Customer, MRR, Module, Priority, Description (One per line)</p>
+                <textarea id="csvInput" rows="3" class="w-full p-4 bg-white border rounded-2xl text-xs outline-none mb-3" placeholder="Google, 50000, AI Search Suite, Critical, Needs faster indexing"></textarea>
+                <button id="csvBtn" onclick="importCSV()" class="w-full py-3 bg-indigo-600 text-white text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-all uppercase">Import CSV</button>
+            </div>
+
+            <div class="h-px bg-slate-100 mb-8"></div>
+
+            <form id="requestForm" class="space-y-6">
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Customer Name</label>
                     <input name="customer" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="e.g. Acme Corp">
@@ -372,7 +451,15 @@
                     <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Module</label>
                     <select name="module" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm">
                         <script>
-                            document.write(MODULE_LIST.map(m => `<option value="${m}">${m}</option>`).join(''));
+                            const list = [
+                                "AI Premium Suite", "AI Search Suite", "AI Writer Suite", "Analytics", "API Documentation", 
+                                "Article Management", "Article Review Reminders", "Authentication", "Billing", "Bulk Operations", 
+                                "Category Management", "Content Reuse", "Custom Pages", "Dashboard", "Editor - Advanced", 
+                                "Feedback Manager", "Glossary", "Import/Export", "Integrations", "KB Assistant", "MCP", 
+                                "Notifications", "Readers & Groups", "Roles & Permissions", "Sandbox", "Search", "SEO", 
+                                "Site Performance", "Ticket Deflectors", "UI/UX", "Workflow Designer", "Workspace Manager"
+                            ].sort();
+                            document.write(list.map(m => `<option value="${m}">${m}</option>`).join(''));
                         </script>
                     </select>
                 </div>
@@ -380,7 +467,7 @@
                     <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Description</label>
                     <textarea name="description" rows="4" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="Describe the feature request..."></textarea>
                 </div>
-                <button type="submit" class="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all">SAVE REQUEST</button>
+                <button type="submit" class="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all">SAVE REQUEST</button>
             </form>
         </div>
     </div>
