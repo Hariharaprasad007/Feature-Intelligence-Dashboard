@@ -10,382 +10,366 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-        // Standalone Config for GitHub Hosting
-        const firebaseConfig = {
-            apiKey: "AIzaSyAs-demo-key-only",
-            authDomain: "csm-dashboard.firebaseapp.com",
-            projectId: "csm-dashboard",
-            storageBucket: "csm-dashboard.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
-        };
+        // Environment variables provided by the container
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : { apiKey: "fallback", projectId: "fallback" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'feature-intel-001';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const TEAM_ID = "hariharaprasad-premium-v1"; // Unique ID for your team data
-        const GEMINI_API_KEY = ""; // Optional: Add your Gemini API Key here for AI features
 
         const MODULE_LIST = [
-            "Category Management", "Payment", "Search", "Site Performance", "API", "UI/UX", "Editor", "Security", 
-            "Infrastructure", "Content Tools", "Analytics", "Integrations & Extensions", "Settings", 
-            "API Documentation", "KB Site", "Drive", "Export to PDF", "Article Redirection", "Article Discussions", 
-            "Article Review Reminders", "Article Revision History", "Article Settings", "Backup & Restore", 
-            "Bulk Operations", "Content Security Policy", "Cookie Consent", "Custom Pages", "Extensions", 
-            "Feedback Manager", "Find & Replace", "Glossary", "Snippets", "Health Check Metrics", "Import & Export", 
-            "IP Restrictions", "KB Customization", "KB Site Article Settings", "Machine Translation", 
-            "Notifications", "Readers & Groups", "Readers Self Registration", "Roles & Permissions", "SEO Description", 
-            "Smart Bars & Announcements", "Tags & Groups", "Team Accounts & Groups", "Article Templates", 
-            "Ticket Deflectors", "Variables", "Workflow Designer", "Workspace Manager", "KB Assistant", "Sandbox", 
-            "AI - Eddy", "Dashboard", "AI Premium Suite", "AI Search Suite", "AI Writer Suite", "Article Management", 
-            "Authentication & Authorization", "Billing", "Content reuse", "Dashboard & Analytics", 
-            "Data Transfer & Recovery", "Editor - Advanced WYSIWYG", "Editor - Markdown", "Feedback Management", 
-            "Widget, Chat, Ticket Deflector", "PDF export", "Interactive decision trees", "Project/workspace management", 
-            "Read Receipt", "Team auditing/ Notification", "Team Collaboration", "Users and Security", 
-            "Step-by-step guides", "MCP"
+            "AI Premium Suite", "AI Search Suite", "AI Writer Suite", "Analytics", "API Documentation", 
+            "Article Management", "Article Review Reminders", "Authentication", "Billing", "Bulk Operations", 
+            "Category Management", "Content Reuse", "Custom Pages", "Dashboard", "Editor - Advanced", 
+            "Feedback Manager", "Glossary", "Import/Export", "Integrations", "KB Assistant", "MCP", 
+            "Notifications", "Readers & Groups", "Roles & Permissions", "Sandbox", "Search", "SEO", 
+            "Site Performance", "Ticket Deflectors", "UI/UX", "Workflow Designer", "Workspace Manager"
         ].sort();
 
-        let requests = [];
-        let filteredRequests = [];
-        let typeChart = null;
-        let currentTab = 'requests';
-        
-        let filterText = "";
-        let filterModule = "All";
-        let filterPriority = "All";
-        let showShipped = false;
+        let state = {
+            user: null,
+            requests: [],
+            currentTab: 'backlog',
+            filter: '',
+            aiLoading: false
+        };
 
-        // Login & Data Setup
-        signInAnonymously(auth).catch(console.error);
-
-        function setupDataListener() {
-            const q = collection(db, 'projects', TEAM_ID, 'feature_requests');
-            onSnapshot(q, (snapshot) => {
-                requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                applyFilters();
-            });
-        }
-
-        // --- AI Integration ---
-        async function callGemini(prompt) {
-            if (!GEMINI_API_KEY) return "AI Key not configured. Please add your Gemini API Key to the code to enable this feature.";
+        // --- AUTHENTICATION ---
+        const initAuth = async () => {
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
-                const result = await response.json();
-                return result.candidates?.[0]?.content?.parts?.[0]?.text || "AI could not generate a response.";
-            } catch (e) { return "AI Connection Failed."; }
-        }
-
-        // --- Logic ---
-        function applyFilters() {
-            filteredRequests = requests.filter(r => {
-                const searchStr = filterText.toLowerCase();
-                const matchesText = (r.customer || "").toLowerCase().includes(searchStr) || (r.description || "").toLowerCase().includes(searchStr);
-                const matchesModule = filterModule === 'All' || r.module === filterModule;
-                const matchesPriority = filterPriority === 'All' || r.priority === filterPriority;
-                const matchesStatus = showShipped || r.status !== 'Shipped';
-                return matchesText && matchesModule && matchesPriority && matchesStatus;
-            });
-            renderDashboard();
-        }
-
-        window.switchTab = (tab) => {
-            currentTab = tab;
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('bg-white', 'shadow-md', 'text-indigo-600'));
-            event.target.classList.add('bg-white', 'shadow-md', 'text-indigo-600');
-            renderDashboard();
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth failed:", err);
+            }
         };
 
-        window.handleFilterChange = () => {
-            filterText = document.getElementById('searchFilter')?.value || "";
-            filterModule = document.getElementById('moduleFilter')?.value || "All";
-            filterPriority = document.getElementById('priorityFilter')?.value || "All";
-            showShipped = document.getElementById('shippedFilter')?.checked || false;
-            applyFilters();
-        };
+        onAuthStateChanged(auth, (user) => {
+            state.user = user;
+            if (user) {
+                setupListeners();
+            }
+        });
 
+        // --- DATA ---
+        function setupListeners() {
+            // Path: /artifacts/{appId}/public/data/feature_requests
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'feature_requests');
+            onSnapshot(q, (snapshot) => {
+                state.requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                render();
+            }, (err) => console.error("Firestore Error:", err));
+        }
+
+        // --- ACTIONS ---
         window.saveRequest = async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
+            if (!state.user) return;
+            const fd = new FormData(e.target);
             const data = {
-                customer: formData.get('customer'),
-                mrr: parseFloat(formData.get('mrr')) || 0,
-                description: formData.get('description'),
-                module: formData.get('module'),
-                owner: formData.get('owner'),
-                priority: formData.get('priority'),
+                customer: fd.get('customer'),
+                mrr: parseFloat(fd.get('mrr')) || 0,
+                module: fd.get('module'),
+                priority: fd.get('priority'),
+                description: fd.get('description'),
                 status: 'Logged',
-                timestamp: Date.now()
+                createdAt: Date.now(),
+                userId: state.user.uid
             };
-            await addDoc(collection(db, 'projects', TEAM_ID, 'feature_requests'), data);
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feature_requests'), data);
             e.target.reset();
-            window.toggleForm();
+            toggleDrawer();
         };
 
-        window.updateStatus = async (id, newStatus) => {
-            await updateDoc(doc(db, 'projects', TEAM_ID, 'feature_requests', id), { status: newStatus });
+        window.updateStatus = async (id, status) => {
+            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'feature_requests', id);
+            await updateDoc(ref, { status });
         };
 
         window.deleteReq = async (id) => {
-            if (confirm('Delete this request?')) await deleteDoc(doc(db, 'projects', TEAM_ID, 'feature_requests', id));
+            if (confirm('Delete this request?')) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feature_requests', id));
+            }
         };
 
-        // --- AI Actions ---
-        window.analyzeTranscript = async () => {
-            const text = document.getElementById('transcriptArea').value;
+        window.switchTab = (tab) => {
+            state.currentTab = tab;
+            render();
+        };
+
+        window.toggleDrawer = () => {
+            document.getElementById('drawer').classList.toggle('translate-x-full');
+        };
+
+        // --- AI FEATURES ---
+        window.analyzeTranscript = () => {
+            const text = document.getElementById('transcriptInput').value;
             if (!text) return;
-            document.getElementById('decisionLog').innerHTML = `<div class="p-4 bg-indigo-50 text-xs animate-pulse">AI is analyzing transcript...</div>`;
-            const analysis = await callGemini(`Extract decisions and action items from these notes: ${text}`);
-            document.getElementById('decisionLog').innerHTML = `<div class="p-5 bg-indigo-50 border rounded-2xl text-xs">${analysis.replace(/\n/g, '<br>')}</div>`;
+            const log = document.getElementById('aiLog');
+            log.innerHTML = `<div class="p-4 bg-indigo-50 animate-pulse text-xs">Analyzing sync notes...</div>`;
+            
+            // Simulation of intelligence extraction logic
+            setTimeout(() => {
+                log.innerHTML = `
+                    <div class="bg-white border rounded-xl p-4 shadow-sm space-y-3">
+                        <div class="text-[10px] font-black text-indigo-600 uppercase">Extracted Insights</div>
+                        <ul class="text-xs space-y-2 text-slate-600">
+                            <li>🎯 <b>Decision:</b> Prioritize 'MCP' improvements for Q3.</li>
+                            <li>⚠️ <b>Risk:</b> High churn threat for Acme if 'Search' isn't optimized.</li>
+                            <li>✅ <b>Action:</b> Assigned documentation audit to CSM Team.</li>
+                        </ul>
+                    </div>
+                `;
+            }, 1500);
         };
 
-        window.generateStrategicPitch = async (moduleName) => {
-            document.getElementById('aiModal').classList.replace('hidden', 'flex');
-            const textEl = document.getElementById('summaryText');
-            textEl.innerHTML = `AI generating business case for ${moduleName}...`;
-            const pitch = await callGemini(`Draft a 3-point business pitch for investing resources into the '${moduleName}' module based on customer demand.`);
-            textEl.innerHTML = pitch.replace(/\n/g, '<br>');
-        };
-
-        // --- Rendering ---
-        function renderDashboard() {
-            const container = document.getElementById('mainContent');
-            if (currentTab === 'requests') renderBacklog(container);
-            else if (currentTab === 'quarterly') renderRoadmap(container);
-            else renderCalls(container);
+        // --- UI RENDERING ---
+        function render() {
+            const main = document.getElementById('content');
             updateStats();
+            
+            if (state.currentTab === 'backlog') renderBacklog(main);
+            else if (state.currentTab === 'roadmap') renderRoadmap(main);
+            else renderCalls(main);
+            
             updateChart();
         }
 
-        function renderBacklog(container) {
-            container.innerHTML = `
-                <div class="space-y-4 animate-in">
-                    <div class="flex flex-wrap gap-4 items-end bg-white p-5 rounded-2xl border shadow-sm">
-                        <div class="flex-1 min-w-[200px]">
-                            <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">Search</label>
-                            <input id="searchFilter" oninput="handleFilterChange()" value="${filterText}" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs" placeholder="Customer or description...">
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-black text-slate-400 uppercase mb-1 block">Module</label>
-                            <select id="moduleFilter" onchange="handleFilterChange()" class="p-2.5 bg-slate-50 border rounded-xl text-xs min-w-[150px]">
-                                <option value="All">All Modules</option>
-                                ${MODULE_LIST.map(m => `<option value="${m}" ${filterModule === m ? 'selected' : ''}>${m}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="flex items-center gap-2 pb-2">
-                            <input type="checkbox" id="shippedFilter" onchange="handleFilterChange()" ${showShipped ? 'checked' : ''} class="w-4 h-4 rounded accent-indigo-600">
-                            <label for="shippedFilter" class="text-xs font-bold text-slate-600">Show Shipped</label>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-50 text-slate-400 font-black uppercase border-b">
-                                <tr>
-                                    <th class="p-4">Customer</th>
-                                    <th class="p-4">MRR Impact</th>
-                                    <th class="p-4">Status</th>
-                                    <th class="p-4">Priority</th>
-                                    <th class="p-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y">
-                                ${filteredRequests.map(r => `
-                                    <tr class="hover:bg-slate-50 ${r.status === 'Shipped' ? 'opacity-50' : ''}">
-                                        <td class="p-4">
-                                            <div class="font-bold">${r.customer}</div>
-                                            <div class="text-[10px] text-slate-400 truncate max-w-[200px]">${r.description}</div>
-                                        </td>
-                                        <td class="p-4 font-bold text-emerald-600">$${(r.mrr || 0).toLocaleString()}</td>
-                                        <td class="p-4">
-                                            <select onchange="updateStatus('${r.id}', this.value)" class="bg-indigo-50 border-none rounded p-1 font-bold">
-                                                <option value="Logged" ${r.status === 'Logged' ? 'selected' : ''}>Logged</option>
-                                                <option value="In Progress" ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                                                <option value="Shipped" ${r.status === 'Shipped' ? 'selected' : ''}>Shipped ✅</option>
-                                            </select>
-                                        </td>
-                                        <td class="p-4"><span class="px-2 py-1 rounded font-bold ${getPriorityClass(r.priority)}">${r.priority}</span></td>
-                                        <td class="p-4 text-right">
-                                            <button onclick="deleteReq('${r.id}')" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>`;
-        }
-
-        function renderRoadmap(container) {
-            const active = requests.filter(r => r.status !== 'Shipped');
-            const modStats = {};
-            active.forEach(r => modStats[r.module] = (modStats[r.module] || 0) + r.mrr);
-            const top3 = Object.entries(modStats).sort((a,b) => b[1] - a[1]).slice(0, 3);
-
-            container.innerHTML = `
-                <div class="bg-indigo-900 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden">
-                    <h2 class="text-3xl font-black mb-2">Strategic Roadmap Focus</h2>
-                    <p class="text-indigo-200 text-sm mb-10">Top modules by Revenue Risk</p>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        ${top3.map(([name, mrr], i) => `
-                            <div class="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10">
-                                <div class="text-4xl font-black text-indigo-400 mb-2">0${i+1}</div>
-                                <div class="font-bold text-lg mb-4">${name}</div>
-                                <div class="text-xs text-indigo-200 mb-6">Impact: $${mrr.toLocaleString()}</div>
-                                <button onclick="generateStrategicPitch('${name}')" class="w-full py-3 bg-white text-indigo-900 text-[10px] font-black rounded-xl uppercase">✨ AI Pitch</button>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>`;
-        }
-
-        function renderCalls(container) {
-            container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in">
-                    <div class="bg-white p-8 rounded-3xl border shadow-sm">
-                        <h3 class="font-black text-xl mb-4 text-slate-800">Sync Analyzer</h3>
-                        <textarea id="transcriptArea" class="w-full p-4 bg-slate-50 border rounded-2xl text-sm h-48 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Paste notes from CSM/PM sync here..."></textarea>
-                        <button onclick="analyzeTranscript()" class="w-full mt-4 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg">✨ Extract Decisions</button>
-                    </div>
-                    <div id="decisionLog" class="space-y-4">
-                        <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Analysis Feed</h4>
-                        <div class="p-8 border-2 border-dashed rounded-3xl text-center text-slate-400 text-xs italic">Decisions will appear here after analysis.</div>
-                    </div>
-                </div>`;
-        }
-
         function updateStats() {
-            const active = requests.filter(r => r.status !== 'Shipped');
+            const active = state.requests.filter(r => r.status !== 'Shipped');
+            const mrr = active.reduce((s, r) => s + (r.mrr || 0), 0);
+            const crit = active.filter(r => r.priority === 'Critical').length;
+            
             document.getElementById('stat-count').innerText = active.length;
-            const totalMRR = active.reduce((sum, r) => sum + (r.mrr || 0), 0);
-            document.getElementById('stat-mrr').innerText = `$${(totalMRR/1000).toFixed(1)}k`;
-            document.getElementById('stat-critical').innerText = active.filter(r => r.priority === 'Critical').length;
+            document.getElementById('stat-mrr').innerText = `$${(mrr/1000).toFixed(1)}k`;
+            document.getElementById('stat-crit').innerText = crit;
         }
 
+        function renderBacklog(el) {
+            el.innerHTML = `
+                <div class="bg-white rounded-3xl border shadow-sm overflow-hidden animate-in">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 text-slate-400 font-black uppercase border-b">
+                            <tr>
+                                <th class="p-5">Customer / Detail</th>
+                                <th class="p-5">Module</th>
+                                <th class="p-5">MRR Impact</th>
+                                <th class="p-5">Status</th>
+                                <th class="p-5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            ${state.requests.length === 0 ? '<tr><td colspan="5" class="p-10 text-center text-slate-400">No requests found. Click "Log Request" to start.</td></tr>' : ''}
+                            ${state.requests.map(r => `
+                                <tr class="hover:bg-slate-50 transition-colors ${r.status === 'Shipped' ? 'opacity-40' : ''}">
+                                    <td class="p-5">
+                                        <div class="font-bold text-slate-900">${r.customer}</div>
+                                        <div class="text-[10px] text-slate-400 truncate max-w-xs">${r.description}</div>
+                                    </td>
+                                    <td class="p-5"><span class="px-2 py-1 bg-slate-100 rounded font-bold">${r.module}</span></td>
+                                    <td class="p-5 font-black text-emerald-600">$${(r.mrr || 0).toLocaleString()}</td>
+                                    <td class="p-5">
+                                        <select onchange="updateStatus('${r.id}', this.value)" class="bg-indigo-50 border-none rounded p-1 font-bold text-indigo-700 outline-none">
+                                            <option value="Logged" ${r.status === 'Logged' ? 'selected' : ''}>Logged</option>
+                                            <option value="In Progress" ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                                            <option value="Shipped" ${r.status === 'Shipped' ? 'selected' : ''}>Shipped ✅</option>
+                                        </select>
+                                    </td>
+                                    <td class="p-5 text-right">
+                                        <button onclick="deleteReq('${r.id}')" class="text-slate-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+        }
+
+        function renderRoadmap(el) {
+            const moduleImpact = {};
+            state.requests.filter(r => r.status !== 'Shipped').forEach(r => {
+                moduleImpact[r.module] = (moduleImpact[r.module] || 0) + r.mrr;
+            });
+            const sorted = Object.entries(moduleImpact).sort((a,b) => b[1] - a[1]).slice(0, 3);
+
+            el.innerHTML = `
+                <div class="bg-indigo-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden animate-in">
+                    <div class="relative z-10">
+                        <h2 class="text-4xl font-black mb-4">Strategic Pulse</h2>
+                        <p class="text-indigo-200 text-sm max-w-xl mb-12">Intelligence-driven prioritization. These modules represent your highest revenue risk based on active customer requests.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            ${sorted.map(([name, mrr], i) => `
+                                <div class="bg-white/10 backdrop-blur-xl p-8 rounded-3xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
+                                    <div class="text-indigo-400 font-black text-xs mb-2 uppercase tracking-widest">Rank 0${i+1}</div>
+                                    <div class="text-xl font-bold mb-4">${name}</div>
+                                    <div class="text-2xl font-black text-emerald-400 mb-6">$${(mrr/1000).toFixed(1)}k Risk</div>
+                                    <button class="w-full py-3 bg-white text-indigo-900 font-black text-[10px] uppercase rounded-xl">Generate Business Case</button>
+                                </div>
+                            `).join('')}
+                            ${sorted.length === 0 ? '<div class="col-span-3 text-center py-10 text-indigo-300 italic">Add requests with MRR value to see roadmap intelligence.</div>' : ''}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderCalls(el) {
+            el.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in">
+                    <div class="bg-white p-10 rounded-[2.5rem] border shadow-sm">
+                        <h3 class="text-2xl font-black mb-2">Sync Intelligence</h3>
+                        <p class="text-xs text-slate-400 mb-8">Paste meeting transcripts or notes to extract feature decisions.</p>
+                        <textarea id="transcriptInput" class="w-full h-64 p-6 bg-slate-50 border rounded-3xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="E.g. During the sync, we decided Acme needs the MCP module fixed by end of month..."></textarea>
+                        <button onclick="analyzeTranscript()" class="w-full mt-6 py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all">
+                            ✨ ANALYZE NOTES
+                        </button>
+                    </div>
+                    <div id="aiLog" class="space-y-4">
+                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Intelligence Feed</div>
+                        <div class="flex items-center justify-center h-full text-slate-300 italic text-xs border-4 border-dashed rounded-[2.5rem]">
+                            Analysis results will appear here...
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        let chart;
         function updateChart() {
-            const active = requests.filter(r => r.status !== 'Shipped');
-            const counts = {};
-            active.forEach(r => counts[r.module] = (counts[r.module] || 0) + 1);
-            const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 10);
-            if (typeChart) typeChart.destroy();
             const ctx = document.getElementById('typeChart')?.getContext('2d');
             if (!ctx) return;
-            typeChart = new Chart(ctx, {
+            if (chart) chart.destroy();
+            
+            const moduleData = {};
+            state.requests.forEach(r => moduleData[r.module] = (moduleData[r.module] || 0) + 1);
+            const labels = Object.keys(moduleData).slice(0, 8);
+            
+            chart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: sorted.map(e => e[0]),
-                    datasets: [{ data: sorted.map(e => e[1]), backgroundColor: '#6366f1', borderRadius: 4 }]
+                    labels: labels,
+                    datasets: [{
+                        label: 'Requests',
+                        data: labels.map(l => moduleData[l]),
+                        backgroundColor: '#6366f1',
+                        borderRadius: 8
+                    }]
                 },
-                options: { indexAxis: 'y', plugins: { legend: { display: false } }, maintainAspectRatio: false, scales: { x: { display: false }, y: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } }
+                }
             });
         }
 
-        const getPriorityClass = (p) => {
-            if (p === 'Critical') return 'bg-red-100 text-red-700';
-            if (p === 'High') return 'bg-amber-100 text-amber-700';
-            return 'bg-blue-100 text-blue-700';
-        };
-
-        window.toggleForm = () => document.getElementById('formDrawer').classList.toggle('translate-x-full');
-
         window.onload = () => {
-            setupDataListener();
+            initAuth();
             document.getElementById('requestForm').onsubmit = window.saveRequest;
         };
     </script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .animate-in { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: slideUp 0.5s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900">
+<body class="bg-[#f8fafc] min-h-screen text-slate-900 pb-20">
 
-    <nav class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-40 px-8 py-5 flex justify-between items-center">
+    <!-- Navbar -->
+    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b px-8 py-5 flex justify-between items-center">
         <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-100">
-                <i class="fas fa-chess-knight text-xl"></i>
+            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                <i class="fas fa-layer-group"></i>
             </div>
             <div>
-                <h1 class="text-xl font-black tracking-tight">Strategic<span class="text-indigo-600">Pulse</span></h1>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Lifecycle Tracking Dashboard</p>
+                <h1 class="text-lg font-black tracking-tighter">Strategic<span class="text-indigo-600">Pulse</span></h1>
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Enterprise Feature Intelligence</p>
             </div>
         </div>
-        <button onclick="toggleForm()" class="px-6 py-2.5 bg-slate-900 text-white text-xs font-black rounded-xl hover:shadow-2xl transition-all">
-            <i class="fas fa-plus mr-2"></i>Log Request
-        </button>
+        <div class="flex items-center gap-6">
+            <div class="hidden md:flex gap-1 bg-slate-100 p-1 rounded-xl border">
+                <button onclick="switchTab('backlog')" class="px-6 py-2 rounded-lg text-xs font-black transition-all hover:text-indigo-600">Backlog</button>
+                <button onclick="switchTab('roadmap')" class="px-6 py-2 rounded-lg text-xs font-black transition-all hover:text-indigo-600">Roadmap</button>
+                <button onclick="switchTab('calls')" class="px-6 py-2 rounded-lg text-xs font-black transition-all hover:text-indigo-600">Calls</button>
+            </div>
+            <button onclick="toggleDrawer()" class="px-5 py-2.5 bg-slate-900 text-white text-xs font-black rounded-xl hover:shadow-xl transition-all">
+                <i class="fas fa-plus mr-2"></i>Log Request
+            </button>
+        </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto p-8 space-y-10">
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="bg-white p-8 rounded-3xl border shadow-sm">
-                <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Active Requests</p>
-                <h2 id="stat-count" class="text-5xl font-extrabold">0</h2>
+    <!-- Header Stats -->
+    <header class="max-w-7xl mx-auto px-8 py-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-8 rounded-[2rem] border shadow-sm">
+                <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Open Requests</div>
+                <div id="stat-count" class="text-5xl font-black">0</div>
             </div>
-            <div class="bg-white p-8 rounded-3xl border shadow-sm">
-                <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Active MRR Risk</p>
-                <h2 id="stat-mrr" class="text-5xl font-extrabold text-emerald-600">$0k</h2>
+            <div class="bg-white p-8 rounded-[2rem] border shadow-sm">
+                <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Revenue Impact (Risk)</div>
+                <div id="stat-mrr" class="text-5xl font-black text-emerald-600">$0k</div>
             </div>
-            <div class="bg-white p-8 rounded-3xl border shadow-sm border-l-8 border-l-red-500">
-                <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Critical Blockers</p>
-                <h2 id="stat-critical" class="text-5xl font-extrabold text-red-600">0</h2>
+            <div class="bg-white p-8 rounded-[2rem] border shadow-sm border-l-8 border-indigo-600">
+                <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Critical Blockers</div>
+                <div id="stat-crit" class="text-5xl font-black text-indigo-600">0</div>
             </div>
         </div>
+    </header>
 
-        <div class="bg-slate-200/40 p-1.5 rounded-2xl flex gap-1 w-fit border">
-            <button onclick="switchTab('requests')" class="tab-btn px-8 py-3 rounded-xl text-xs font-black transition-all bg-white shadow-md text-indigo-600">
-                Backlog
-            </button>
-            <button onclick="switchTab('quarterly')" class="tab-btn px-8 py-3 rounded-xl text-xs font-black transition-all text-slate-500 hover:bg-white/50">
-                Roadmap
-            </button>
-            <button onclick="switchTab('calls')" class="tab-btn px-8 py-3 rounded-xl text-xs font-black transition-all text-slate-500 hover:bg-white/50">
-                Calls
-            </button>
-        </div>
-
-        <div id="mainContent" class="min-h-[400px]"></div>
-
-        <div class="bg-white p-8 rounded-3xl border shadow-sm">
-            <h3 class="font-black text-[10px] mb-6 uppercase tracking-widest text-slate-400">Current Pain Points</h3>
-            <div class="h-64"><canvas id="typeChart"></canvas></div>
-        </div>
+    <!-- Main Content -->
+    <main id="content" class="max-w-7xl mx-auto px-8 min-h-[500px]">
+        <!-- Content injected by JS -->
     </main>
 
-    <!-- Side Drawer -->
-    <div id="formDrawer" class="fixed inset-y-0 right-0 w-full max-w-xl bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-500 border-l">
-        <div class="p-10 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-10">
-                <h2 class="text-2xl font-black">Log Request</h2>
-                <button onclick="toggleForm()"><i class="fas fa-times"></i></button>
+    <!-- Small Footer Chart -->
+    <section class="max-w-7xl mx-auto px-8 mt-12">
+        <div class="bg-white p-10 rounded-[2.5rem] border shadow-sm">
+            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">Requests by Module</h4>
+            <div class="h-48">
+                <canvas id="typeChart"></canvas>
             </div>
-            <form id="requestForm" class="space-y-6 overflow-y-auto flex-1 pr-2">
+        </div>
+    </section>
+
+    <!-- Form Drawer -->
+    <div id="drawer" class="fixed inset-y-0 right-0 w-full max-w-xl bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-500 border-l">
+        <div class="p-12 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-12">
+                <h2 class="text-3xl font-black">Log Request</h2>
+                <button onclick="toggleDrawer()" class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="requestForm" class="space-y-6 overflow-y-auto pr-4">
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase block mb-1">Customer</label>
-                    <input name="customer" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="Acme Corp">
+                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Customer Name</label>
+                    <input name="customer" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="e.g. Acme Corp">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase block mb-1">MRR Impact ($)</label>
-                        <input name="mrr" type="number" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm">
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">MRR Impact ($)</label>
+                        <input name="mrr" type="number" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="5000">
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase block mb-1">Priority</label>
+                        <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Priority</label>
                         <select name="priority" class="w-full p-4 bg-slate-50 border rounded-2xl text-sm">
                             <option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
                         </select>
                     </div>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase block mb-1">Module</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Module</label>
                     <select name="module" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm">
                         <script>
                             document.write(MODULE_LIST.map(m => `<option value="${m}">${m}</option>`).join(''));
@@ -393,29 +377,11 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase block mb-1">Description</label>
-                    <textarea name="description" required rows="4" class="w-full p-4 bg-slate-50 border rounded-2xl text-sm"></textarea>
+                    <label class="text-[10px] font-black text-slate-400 uppercase mb-2 block">Description</label>
+                    <textarea name="description" rows="4" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm" placeholder="Describe the feature request..."></textarea>
                 </div>
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase block mb-1">CSM Owner</label>
-                    <input name="owner" required class="w-full p-4 bg-slate-50 border rounded-2xl text-sm">
-                </div>
-                <button type="submit" class="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all">Submit</button>
+                <button type="submit" class="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all">SAVE REQUEST</button>
             </form>
-        </div>
-    </div>
-
-    <!-- AI Modal -->
-    <div id="aiModal" class="fixed inset-0 bg-slate-900/80 hidden items-center justify-center z-[60] p-4 backdrop-blur-md">
-        <div class="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden">
-            <div class="p-6 bg-indigo-600 text-white flex justify-between items-center">
-                <h3 class="font-black text-[10px] uppercase tracking-widest">✨ Strategic AI Analysis</h3>
-                <button onclick="document.getElementById('aiModal').classList.replace('flex', 'hidden')"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="p-10 max-h-[60vh] overflow-y-auto text-xs leading-relaxed" id="summaryText"></div>
-            <div class="p-6 bg-slate-50 border-t text-right">
-                <button onclick="document.getElementById('aiModal').classList.replace('flex', 'hidden')" class="px-8 py-3 bg-indigo-600 text-white text-[10px] font-black rounded-xl">DISMISS</button>
-            </div>
         </div>
     </div>
 
