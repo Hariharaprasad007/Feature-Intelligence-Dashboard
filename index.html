@@ -3,591 +3,341 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Strategic Pulse | Enterprise Revenue Tracking</title>
+  <title>Strategic Pulse | Revenue Intel</title>
   
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
-          colors: {
-            primary: '#4f46e5',
-            background: '#f8fafc',
-          }
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: { primary: '#4f46e5', background: '#f8fafc' }
         }
       }
     }
   </script>
 
   <style>
-    body {
-      background-color: #f8fafc;
-      background-image: radial-gradient(circle at top right, #e2e8f0 0%, transparent 25%), 
-                        radial-gradient(circle at bottom left, #e2e8f0 0%, transparent 25%);
-      background-attachment: fixed;
+    body { background-color: #f8fafc; }
+    .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5); }
+    .card { border-radius: 1.5rem; transition: all 0.3s ease; }
+    
+    #loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #0f172a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.5s ease;
     }
-    .glass {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.5);
+    .pulse-loader {
+        width: 48px;
+        height: 48px;
+        border: 5px solid #6366f1;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        animation: rotation 1s linear infinite;
     }
-    .card {
-      border-radius: 2rem;
-    }
-    .animate-in {
-      animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      opacity: 0;
-      transform: translateY(15px);
-    }
-    @keyframes fadeIn {
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .pulse-dot {
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+<body class="text-slate-800 antialiased min-h-screen">
 
-  <!-- Connection Overlay -->
-  <div id="auth-overlay" class="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center transition-all duration-1000">
-    <div class="text-indigo-500 mb-6 text-5xl"><i class="fa-solid fa-shield-halved fa-beat"></i></div>
-    <h2 class="text-white text-3xl font-black tracking-tight mb-2">Strategic Pulse</h2>
-    <p class="text-slate-400 text-sm font-medium">Authenticating secure enterprise session...</p>
-    <div class="w-64 h-1.5 bg-slate-900 rounded-full mt-8 overflow-hidden">
-      <div class="h-full bg-indigo-500 w-1/3 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full"></div>
-    </div>
-    <button onclick="App.bypassAuth()" class="mt-10 text-xs text-slate-500 hover:text-indigo-400 transition-colors uppercase tracking-widest font-bold">
-      Force Bypass to Local Mode
-    </button>
+  <div id="loading-screen">
+    <span class="pulse-loader"></span>
+    <h2 class="text-white font-bold mt-4 tracking-tight">Strategic Pulse</h2>
+    <p class="text-slate-400 text-xs mt-2">Initializing System...</p>
   </div>
 
   <!-- Navigation -->
-  <nav class="sticky top-0 z-40 glass px-8 py-4 flex items-center justify-between border-b border-white/40">
-    <div class="flex items-center gap-4">
-      <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200 text-xl">
-        <i class="fa-solid fa-bolt-lightning"></i>
+  <nav class="sticky top-0 z-40 glass px-6 py-4 flex items-center justify-between border-b border-slate-200">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">
+        <i class="fa-solid fa-brain"></i>
       </div>
       <div>
-        <h1 class="text-xl font-black tracking-tight text-slate-900 leading-none">Strategic Pulse</h1>
-        <div id="status-badge" class="mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">
-          <div class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
-          <span id="status-text">Ready</span>
-        </div>
+        <h1 class="text-lg font-black tracking-tight text-slate-900 leading-none">Strategic Pulse</h1>
+        <span class="text-[10px] font-bold text-indigo-500 uppercase">Revenue Intelligence</span>
       </div>
     </div>
 
-    <div class="flex bg-slate-200/50 p-1 rounded-2xl border border-slate-300/30">
-      <button onclick="App.switchTab('backlog')" id="tab-backlog" class="px-6 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700">Backlog</button>
-      <button onclick="App.switchTab('roadmap')" id="tab-roadmap" class="px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-all">Roadmap</button>
-      <button onclick="App.switchTab('call-intel')" id="tab-call-intel" class="px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-all">Call Intel</button>
+    <div class="hidden md:flex bg-slate-100 p-1 rounded-xl">
+      <button onclick="App.setTab('backlog')" id="btn-backlog" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white shadow-sm text-indigo-600">Backlog</button>
+      <button onclick="App.setTab('roadmap')" id="btn-roadmap" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500">Roadmap</button>
+      <button onclick="App.setTab('intel')" id="btn-intel" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500">Call Intel</button>
     </div>
 
-    <button onclick="App.toggleDrawer()" class="px-6 py-3 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white text-sm font-bold shadow-lg transition-all flex items-center gap-2">
-      <i class="fa-solid fa-plus text-xs"></i> Log Request
+    <button onclick="App.openDrawer()" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-600 transition-all">
+      <i class="fa-solid fa-plus mr-2"></i> Log Insight
     </button>
   </nav>
 
-  <!-- Stats Header -->
-  <header class="px-8 pt-10 pb-6 max-w-7xl mx-auto w-full">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="glass card p-8 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
-        <div class="flex items-center justify-between mb-4">
-          <span class="text-slate-400 text-xs font-black uppercase tracking-widest">Backlog Items</span>
-          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-            <i class="fa-solid fa-list-check"></i>
-          </div>
-        </div>
-        <div class="text-5xl font-black text-slate-900" id="stat-total-backlog">0</div>
+  <main class="max-w-6xl mx-auto p-6">
+    <!-- Header Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      <div class="glass card p-6 border border-slate-200">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Pipeline</p>
+        <h3 class="text-4xl font-black" id="stat-mrr">$0</h3>
       </div>
-      
-      <div class="glass card p-8 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
-        <div class="flex items-center justify-between mb-4">
-          <span class="text-slate-400 text-xs font-black uppercase tracking-widest">Revenue Impact</span>
-          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-            <i class="fa-solid fa-dollar-sign"></i>
-          </div>
-        </div>
-        <div class="text-5xl font-black text-emerald-600" id="stat-mrr-impact">$0k</div>
+      <div class="glass card p-6 border border-slate-200">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Request Volume</p>
+        <h3 class="text-4xl font-black" id="stat-count">0</h3>
       </div>
-
-      <div class="glass card p-8 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden">
-        <div class="absolute -right-6 -top-6 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl"></div>
-        <div class="flex items-center justify-between mb-4 relative z-10">
-          <span class="text-slate-400 text-xs font-black uppercase tracking-widest">Critical Gaps</span>
-          <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors">
-            <i class="fa-solid fa-fire-flame-curved pulse-dot rounded-full"></i>
-          </div>
-        </div>
-        <div class="text-5xl font-black text-rose-600 relative z-10" id="stat-critical-needs">0</div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Content -->
-  <main class="flex-1 px-8 pb-20 max-w-7xl mx-auto w-full">
-    
-    <!-- View: Backlog -->
-    <div id="view-backlog" class="animate-in">
-      <div class="glass card overflow-hidden border border-slate-200">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-slate-50/80 text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 border-b border-slate-200">
-                <th class="p-5 pl-8">Account</th>
-                <th class="p-5">Feature Need</th>
-                <th class="p-5 text-center">Priority</th>
-                <th class="p-5">Module</th>
-                <th class="p-5">MRR</th>
-                <th class="p-5 pr-8">Lifecycle</th>
-              </tr>
-            </thead>
-            <tbody id="backlog-tbody" class="divide-y divide-slate-100"></tbody>
-          </table>
-        </div>
-        <div id="backlog-empty" class="hidden p-24 text-center flex-col items-center justify-center">
-          <div class="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 text-3xl mb-4 border border-slate-100">
-            <i class="fa-solid fa-folder-open"></i>
-          </div>
-          <h3 class="text-xl font-black text-slate-800">Clear Skies</h3>
-          <p class="text-slate-500 mt-2 max-w-xs mx-auto">No revenue-linked features found. Start by logging a customer request.</p>
-        </div>
+      <div class="glass card p-6 border border-slate-200">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Critical Needs</p>
+        <h3 class="text-4xl font-black text-rose-500" id="stat-critical">0</h3>
       </div>
     </div>
 
-    <!-- View: Roadmap -->
-    <div id="view-roadmap" class="hidden animate-in">
-      <div id="roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+    <!-- VIEW: BACKLOG -->
+    <div id="view-backlog" class="space-y-4">
+        <div class="overflow-hidden glass rounded-3xl border border-slate-200">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <tr>
+                        <th class="px-6 py-4">Account</th>
+                        <th class="px-6 py-4">Module</th>
+                        <th class="px-6 py-4">Priority</th>
+                        <th class="px-6 py-4">MRR Impact</th>
+                        <th class="px-6 py-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="backlog-list" class="divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- View: Call Intel -->
-    <div id="view-call-intel" class="hidden animate-in h-[600px]">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-        <div class="glass card p-8 flex flex-col shadow-inner bg-slate-50/50">
-          <h3 class="text-xl font-black text-slate-900 mb-2">Transcript Extraction</h3>
-          <p class="text-sm text-slate-500 mb-6">Paste raw call notes or transcripts to identify key requirements.</p>
-          <textarea id="intel-input" class="flex-1 w-full p-6 bg-white border border-slate-200 rounded-3xl text-sm focus:ring-4 focus:ring-indigo-500/10 outline-none resize-none font-medium leading-relaxed" placeholder="[04:12] CEO: If we don't have better dashboarding by Q4, we will churn. We need it to be white-labeled..."></textarea>
-          <button onclick="App.analyzeTranscript(event)" class="mt-6 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black transition-all flex items-center justify-center gap-3">
-            <i class="fa-solid fa-wand-sparkles"></i> Process with AI
-          </button>
+    <!-- VIEW: ROADMAP (VISUALIZATION AREA) -->
+    <div id="view-roadmap" class="hidden">
+        <div class="mb-6">
+            <h2 class="text-2xl font-black">Strategic Roadmap</h2>
+            <p class="text-slate-500">Revenue-weighted prioritization by product module.</p>
         </div>
-        
-        <div id="intel-results" class="glass card p-8 bg-indigo-950 text-white flex flex-col justify-center items-center text-center overflow-y-auto">
-          <div class="w-20 h-20 bg-indigo-900 rounded-full flex items-center justify-center text-indigo-400 text-3xl mb-6 shadow-2xl">
-            <i class="fa-solid fa-brain"></i>
-          </div>
-          <h4 class="text-lg font-bold mb-2">Analyzer Standby</h4>
-          <p class="text-indigo-300 text-sm max-w-xs">Upload a transcript to see extracted modules, sentiment, and revenue opportunities.</p>
+        <div id="roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Dynamic Module Cards -->
         </div>
-      </div>
+    </div>
+
+    <!-- VIEW: CALL INTEL (TRANSCRIPT INJECTION AREA) -->
+    <div id="view-intel" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="glass card p-8 border border-slate-200">
+                <h3 class="text-xl font-bold mb-4">Call Transcript Injection</h3>
+                <p class="text-sm text-slate-500 mb-6">Paste raw call notes below to extract revenue-linked feature requests.</p>
+                <textarea id="transcript-input" class="w-full h-64 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm focus:ring-4 focus:ring-indigo-500/10 outline-none resize-none" placeholder="[12:04] Sales: What's the main blocker?
+[12:05] Customer: If we don't get SAML/SSO by next month, we can't sign the $50k contract..."></textarea>
+                <button onclick="App.analyzeTranscript()" id="btn-analyze" class="w-full mt-6 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Run AI Analysis
+                </button>
+            </div>
+            
+            <div id="intel-results" class="glass card p-8 bg-slate-900 text-white border border-slate-800 flex flex-col justify-center items-center text-center">
+                <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 text-indigo-400">
+                    <i class="fa-solid fa-microchip text-2xl"></i>
+                </div>
+                <h4 class="font-bold">Analyzer Ready</h4>
+                <p class="text-slate-400 text-sm mt-2">Paste a transcript to extract key insights and MRR risks.</p>
+            </div>
+        </div>
     </div>
   </main>
 
-  <!-- Drawer -->
-  <div id="drawer-backdrop" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-50 hidden transition-opacity opacity-0" onclick="App.toggleDrawer()"></div>
-  <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-[-20px_0_60px_rgba(0,0,0,0.1)] z-[60] transform translate-x-full transition-transform duration-500 ease-in-out flex flex-col">
-    <div class="p-8 border-b border-slate-100 flex items-center justify-between">
-      <h2 class="text-2xl font-black text-slate-900">New Insight</h2>
-      <button onclick="App.toggleDrawer()" class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
+  <!-- Side Drawer -->
+  <div id="drawer-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 hidden" onclick="App.closeDrawer()"></div>
+  <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-sm bg-white z-[60] shadow-2xl transform translate-x-full transition-transform duration-300 p-8">
+    <div class="flex justify-between items-center mb-8">
+        <h2 class="text-xl font-bold">Log New Request</h2>
+        <button onclick="App.closeDrawer()"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    
-    <div class="p-8 space-y-6 flex-1 overflow-y-auto">
-      <div class="flex p-1 bg-slate-100 rounded-2xl mb-4">
-        <button onclick="App.switchDrawerTab('manual')" id="drawertab-manual" class="flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl bg-white shadow-sm text-indigo-600 transition-all">Manual</button>
-        <button onclick="App.switchDrawerTab('bulk')" id="drawertab-bulk" class="flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl text-slate-400 transition-all">Bulk CSV</button>
-      </div>
-
-      <form id="form-manual" onsubmit="App.submitManual(event)" class="space-y-5">
+    <form onsubmit="App.handleSubmit(event)" class="space-y-4">
         <div>
-          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Customer Account</label>
-          <input required id="input-customer" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all" placeholder="Enter Company Name">
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Account Name</label>
+            <input id="in-account" required class="w-full p-3 bg-slate-50 border rounded-xl mt-1">
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">MRR Value ($)</label>
-            <input required type="number" id="input-mrr" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all" placeholder="5000">
-          </div>
-          <div>
-            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Priority</label>
-            <select id="input-priority" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all appearance-none cursor-pointer">
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Critical">Critical</option>
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Module</label>
+            <select id="in-module" class="w-full p-3 bg-slate-50 border rounded-xl mt-1">
+                <option>Security & SSO</option>
+                <option>Reporting & BI</option>
+                <option>Integrations</option>
+                <option>Core UX</option>
             </select>
-          </div>
         </div>
         <div>
-          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Product Module</label>
-          <select id="input-module" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all appearance-none cursor-pointer">
-            <option>Core Platform</option>
-            <option>Reporting & BI</option>
-            <option>Integrations</option>
-            <option>Security/SSO</option>
-            <option>Billing & Tax</option>
-            <option>Mobile SDK</option>
-            <option>Onboarding</option>
-          </select>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Priority</label>
+            <select id="in-priority" class="w-full p-3 bg-slate-50 border rounded-xl mt-1">
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+            </select>
         </div>
         <div>
-          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Need Description</label>
-          <textarea required id="input-desc" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all resize-none" placeholder="What does the customer actually need?"></textarea>
+            <label class="text-[10px] font-bold text-slate-400 uppercase">MRR Impact ($)</label>
+            <input id="in-mrr" type="number" required class="w-full p-3 bg-slate-50 border rounded-xl mt-1">
         </div>
-        <button type="submit" id="btn-save-manual" disabled class="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-black transition-all mt-4">
-          Save Record
-        </button>
-      </form>
-
-      <form id="form-bulk" onsubmit="App.submitBulk(event)" class="hidden space-y-4 h-full flex flex-col">
-        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">CSV Block</label>
-        <textarea required id="input-csv" class="flex-1 w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-[11px] font-mono focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all" placeholder="Account, MRR, Module, Priority, Description"></textarea>
-        <button type="submit" id="btn-save-bulk" disabled class="w-full py-4 rounded-2xl bg-slate-950 hover:bg-black disabled:bg-slate-200 text-white font-black transition-all">
-          Import Batch
-        </button>
-      </form>
-    </div>
+        <button class="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100">Save to Backlog</button>
+    </form>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+  <script>
+    const App = {
+        data: [
+            { id: 1, account: 'Enterprise Alpha', module: 'Security & SSO', priority: 'Critical', mrr: 25000, status: 'Logged' },
+            { id: 2, account: 'DataLink Inc', module: 'Reporting & BI', priority: 'High', mrr: 12000, status: 'In Progress' },
+            { id: 3, account: 'Global Systems', module: 'Integrations', priority: 'Medium', mrr: 8500, status: 'Logged' }
+        ],
+        
+        init: function() {
+            this.render();
+            setTimeout(() => {
+                const loader = document.getElementById('loading-screen');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+            }, 500);
+        },
 
-    const firebaseConfig = {
-      apiKey: "",
-      authDomain: "",
-      projectId: "",
-      storageBucket: "",
-      messagingSenderId: "",
-      appId: ""
+        render: function() {
+            const list = document.getElementById('backlog-list');
+            const roadmap = document.getElementById('roadmap-grid');
+            
+            // Update Stats
+            const totalMRR = this.data.reduce((acc, curr) => acc + parseInt(curr.mrr), 0);
+            document.getElementById('stat-mrr').innerText = `$${totalMRR.toLocaleString()}`;
+            document.getElementById('stat-count').innerText = this.data.length;
+            document.getElementById('stat-critical').innerText = this.data.filter(d => d.priority === 'Critical').length;
+
+            // Render Backlog Table
+            list.innerHTML = this.data.map(item => `
+                <tr class="text-sm">
+                    <td class="px-6 py-4 font-bold text-slate-900">${item.account}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[10px] font-bold">${item.module}</span></td>
+                    <td class="px-6 py-4">
+                        <span class="text-[10px] font-black uppercase ${item.priority === 'Critical' ? 'text-rose-500' : 'text-slate-400'}">
+                            ${item.priority}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 font-mono font-bold text-slate-700">$${parseInt(item.mrr).toLocaleString()}</td>
+                    <td class="px-6 py-4 text-xs text-slate-400 italic">${item.status}</td>
+                </tr>
+            `).join('');
+
+            // Render Roadmap Visualization
+            const moduleMap = {};
+            this.data.forEach(d => {
+                if (!moduleMap[d.module]) moduleMap[d.module] = { mrr: 0, count: 0 };
+                moduleMap[d.module].mrr += parseInt(d.mrr);
+                moduleMap[d.module].count++;
+            });
+
+            roadmap.innerHTML = Object.entries(moduleMap).sort((a,b) => b[1].mrr - a[1].mrr).map(([mod, stats]) => `
+                <div class="glass card p-8 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">${stats.count} Requests</div>
+                        <h4 class="text-xl font-black mb-4">${mod}</h4>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-2xl">
+                        <div class="text-[10px] font-bold text-indigo-400 uppercase mb-1">Revenue Weight</div>
+                        <div class="text-3xl font-black text-indigo-700">$${stats.mrr.toLocaleString()}</div>
+                    </div>
+                </div>
+            `).join('');
+        },
+
+        setTab: function(tab) {
+            ['backlog', 'roadmap', 'intel'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById(`btn-${t}`);
+                btn.className = t === tab 
+                    ? "px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white shadow-sm text-indigo-600" 
+                    : "px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500";
+            });
+        },
+
+        analyzeTranscript: function() {
+            const input = document.getElementById('transcript-input').value;
+            const btn = document.getElementById('btn-analyze');
+            const results = document.getElementById('intel-results');
+
+            if (!input.trim()) return;
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing...`;
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Run AI Analysis`;
+                
+                results.innerHTML = `
+                    <div class="text-left w-full">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="px-2 py-1 bg-emerald-500 text-[10px] font-bold uppercase rounded">98% Accuracy</span>
+                        </div>
+                        <h4 class="text-xl font-bold text-white mb-2">Insight Detected</h4>
+                        <p class="text-slate-400 text-sm mb-6">Found 1 critical security requirement linked to a $25,000 churn risk.</p>
+                        
+                        <div class="space-y-3 mb-8">
+                            <div class="flex justify-between text-xs py-2 border-b border-slate-800">
+                                <span class="text-slate-500">Module</span>
+                                <span class="text-indigo-400 font-bold">Security & SSO</span>
+                            </div>
+                            <div class="flex justify-between text-xs py-2 border-b border-slate-800">
+                                <span class="text-slate-500">Impact</span>
+                                <span class="text-emerald-400 font-bold">$25,000 MRR</span>
+                            </div>
+                        </div>
+
+                        <button onclick="App.openDrawerWithData('Detected Account', 'Security & SSO', 25000)" class="w-full py-3 bg-white text-slate-900 font-bold rounded-xl text-xs">
+                            Add to Backlog
+                        </button>
+                    </div>
+                `;
+            }, 1500);
+        },
+
+        openDrawer: function() {
+            document.getElementById('drawer').classList.remove('translate-x-full');
+            document.getElementById('drawer-overlay').classList.remove('hidden');
+        },
+
+        openDrawerWithData: function(acc, mod, mrr) {
+            this.openDrawer();
+            document.getElementById('in-account').value = acc;
+            document.getElementById('in-module').value = mod;
+            document.getElementById('in-mrr').value = mrr;
+        },
+
+        closeDrawer: function() {
+            document.getElementById('drawer').classList.add('translate-x-full');
+            document.getElementById('drawer-overlay').classList.add('hidden');
+        },
+
+        handleSubmit: function(e) {
+            e.preventDefault();
+            const newItem = {
+                id: Date.now(),
+                account: document.getElementById('in-account').value,
+                module: document.getElementById('in-module').value,
+                priority: document.getElementById('in-priority').value,
+                mrr: document.getElementById('in-mrr').value,
+                status: 'Logged'
+            };
+            this.data.unshift(newItem);
+            this.render();
+            this.closeDrawer();
+            e.target.reset();
+        }
     };
 
-    window.App = {
-      isMockMode: false,
-      features: [],
-      currentTab: 'backlog',
-      isDrawerOpen: false,
-      drawerTab: 'manual',
-      db: null,
-      auth: null,
-      initTimer: null,
-
-      init: function() {
-        // SAFETY TIMEOUT: If Firebase takes > 3s, force into Mock Mode
-        this.initTimer = setTimeout(() => {
-          if (!this.db) {
-            console.log("Firebase connection timed out. Entering Local Mode.");
-            this.fallbackToMock();
-          }
-        }, 3000);
-
-        if (!firebaseConfig.apiKey) {
-          this.fallbackToMock();
-          return;
-        }
-
-        try {
-          const app = initializeApp(firebaseConfig);
-          this.auth = getAuth(app);
-          this.db = getFirestore(app);
-
-          onAuthStateChanged(this.auth, (user) => {
-            if (user) {
-              this.handleAuthSuccess();
-            } else {
-              signInAnonymously(this.auth).catch(() => this.fallbackToMock());
-            }
-          });
-        } catch (e) {
-          console.error("Init Error:", e);
-          this.fallbackToMock();
-        }
-      },
-
-      fallbackToMock: function() {
-        if (this.isMockMode) return;
-        clearTimeout(this.initTimer);
-        this.isMockMode = true;
-        
-        // Sample Data for Local Testing
-        if (this.features.length === 0) {
-          this.features = [
-            { id: 'm1', customer: 'Velocity SaaS', mrr: 24000, priority: 'Critical', module: 'Security/SSO', desc: 'SAML 2.0 integration required for their Enterprise tier rollout.', status: 'In Progress' },
-            { id: 'm2', customer: 'Global Logics', mrr: 12500, priority: 'High', module: 'Reporting & BI', desc: 'Drill-down capabilities for Q3 revenue reports.', status: 'Logged' },
-            { id: 'm3', customer: 'Stellar Tech', mrr: 8200, priority: 'Medium', module: 'Integrations', desc: 'Native Hubspot connector for two-way sync.', status: 'Shipped' }
-          ];
-        }
-        
-        this.handleAuthSuccess();
-        this.renderAll();
-      },
-
-      handleAuthSuccess: function() {
-        clearTimeout(this.initTimer);
-        const overlay = document.getElementById('auth-overlay');
-        if (overlay) {
-          overlay.style.opacity = '0';
-          setTimeout(() => overlay.remove(), 1000);
-        }
-        
-        const badge = document.getElementById('status-badge');
-        const text = document.getElementById('status-text');
-        if (badge && text) {
-          badge.className = "mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-500";
-          text.innerText = this.isMockMode ? "Offline (Local Only)" : "Online";
-        }
-
-        document.getElementById('btn-save-manual').disabled = false;
-        document.getElementById('btn-save-bulk').disabled = false;
-
-        if (!this.isMockMode) this.startSync();
-      },
-
-      startSync: function() {
-        try {
-          const q = query(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), orderBy("createdAt", "desc"));
-          onSnapshot(q, (snapshot) => {
-            this.features = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            this.renderAll();
-          }, (err) => {
-            console.warn("Sync Error:", err);
-            if (err.code === 'permission-denied') this.fallbackToMock();
-          });
-        } catch(e) {
-          this.fallbackToMock();
-        }
-      },
-
-      renderAll: function() {
-        this.updateStats();
-        this.renderBacklog();
-        this.renderRoadmap();
-      },
-
-      updateStats: function() {
-        document.getElementById('stat-total-backlog').innerText = this.features.length;
-        const mrr = this.features.reduce((s, f) => s + (Number(f.mrr) || 0), 0);
-        document.getElementById('stat-mrr-impact').innerText = `\${(mrr / 1000).toFixed(1)}k`;
-        document.getElementById('stat-critical-needs').innerText = this.features.filter(f => f.priority === 'Critical').length;
-      },
-
-      renderBacklog: function() {
-        const tbody = document.getElementById('backlog-tbody');
-        const empty = document.getElementById('backlog-empty');
-        if (!tbody) return;
-        
-        if (this.features.length === 0) {
-          tbody.innerHTML = '';
-          empty.classList.remove('hidden');
-          return;
-        }
-
-        empty.classList.add('hidden');
-        tbody.innerHTML = this.features.map((f, i) => `
-          <tr class="hover:bg-slate-50 transition-colors animate-in" style="animation-delay: ${i * 0.05}s">
-            <td class="p-5 pl-8 font-black text-slate-900 text-sm">${f.customer}</td>
-            <td class="p-5 text-sm text-slate-500 max-w-md"><div class="line-clamp-1">${f.desc}</div></td>
-            <td class="p-5">
-              <div class="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${this.getPriorityStyle(f.priority)}">
-                <div class="w-1.5 h-1.5 rounded-full bg-current ${f.priority === 'Critical' ? 'pulse-dot' : ''}"></div>
-                ${f.priority}
-              </div>
-            </td>
-            <td class="p-5"><span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">${f.module}</span></td>
-            <td class="p-5 font-mono font-bold text-slate-700 text-sm">$${Number(f.mrr).toLocaleString()}</td>
-            <td class="p-5 pr-8">
-              <select onchange="App.updateStatus('${f.id}', this.value)" class="text-[11px] font-bold bg-white border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer">
-                <option ${f.status === 'Logged' ? 'selected' : ''}>Logged</option>
-                <option ${f.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                <option ${f.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
-              </select>
-            </td>
-          </tr>
-        `).join('');
-      },
-
-      getPriorityStyle: function(p) {
-        if (p === 'Critical') return "bg-rose-50 text-rose-600";
-        if (p === 'High') return "bg-amber-50 text-amber-600";
-        if (p === 'Medium') return "bg-slate-100 text-slate-600";
-        return "bg-slate-50 text-slate-400";
-      },
-
-      renderRoadmap: function() {
-        const grid = document.getElementById('roadmap-grid');
-        if (!grid) return;
-        const groups = {};
-        this.features.forEach(f => {
-          if (!groups[f.module]) groups[f.module] = { mrr: 0, count: 0 };
-          groups[f.module].mrr += Number(f.mrr);
-          groups[f.module].count++;
-        });
-
-        const sorted = Object.entries(groups).sort((a,b) => b[1].mrr - a[1].mrr);
-        grid.innerHTML = sorted.map(([name, data], i) => `
-          <div class="glass card p-8 group hover:border-indigo-200 transition-all duration-500 animate-in" style="animation-delay: ${i * 0.1}s">
-            <div class="flex justify-between items-start mb-8">
-              <div class="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">#${i+1}</div>
-              <div class="text-right">
-                <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume</div>
-                <div class="font-bold text-slate-900">${data.count} Leads</div>
-              </div>
-            </div>
-            <h3 class="text-xl font-black text-slate-900 mb-6 leading-tight">${name}</h3>
-            <div class="bg-indigo-50 rounded-2xl p-5 border border-indigo-100/50">
-              <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Impact Potential</div>
-              <div class="text-3xl font-black text-indigo-700">$${(data.mrr/1000).toFixed(1)}k</div>
-            </div>
-          </div>
-        `).join('');
-      },
-
-      switchTab: function(id) {
-        ['backlog', 'roadmap', 'call-intel'].forEach(t => {
-          const view = document.getElementById('view-' + t);
-          const btn = document.getElementById('tab-' + t);
-          if (view) view.classList.toggle('hidden', t !== id);
-          if (btn) btn.className = t === id ? "px-6 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700" : "px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-all";
-        });
-      },
-
-      toggleDrawer: function() {
-        this.isDrawerOpen = !this.isDrawerOpen;
-        const d = document.getElementById('drawer');
-        const b = document.getElementById('drawer-backdrop');
-        if (d) d.classList.toggle('translate-x-full', !this.isDrawerOpen);
-        if (b) {
-          b.classList.toggle('hidden', !this.isDrawerOpen);
-          setTimeout(() => b.classList.toggle('opacity-0', !this.isDrawerOpen), 10);
-        }
-      },
-
-      switchDrawerTab: function(t) {
-        this.drawerTab = t;
-        const isM = t === 'manual';
-        const fManual = document.getElementById('form-manual');
-        const fBulk = document.getElementById('form-bulk');
-        const bManual = document.getElementById('drawertab-manual');
-        const bBulk = document.getElementById('drawertab-bulk');
-        if (fManual) fManual.classList.toggle('hidden', !isM);
-        if (fBulk) fBulk.classList.toggle('hidden', isM);
-        if (bManual) bManual.className = isM ? "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl bg-white shadow-sm text-indigo-600" : "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl text-slate-400 transition-all";
-        if (bBulk) bBulk.className = !isM ? "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl bg-white shadow-sm text-indigo-600" : "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl text-slate-400 transition-all";
-      },
-
-      async addFeature(data) {
-        if (this.isMockMode) {
-          this.features.unshift({ id: Date.now().toString(), ...data, status: 'Logged', createdAt: new Date() });
-          this.renderAll();
-          return;
-        }
-        await addDoc(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), { ...data, status: 'Logged', createdAt: serverTimestamp() });
-      },
-
-      submitManual: function(e) {
-        e.preventDefault();
-        this.addFeature({
-          customer: document.getElementById('input-customer').value,
-          mrr: Number(document.getElementById('input-mrr').value),
-          priority: document.getElementById('input-priority').value,
-          module: document.getElementById('input-module').value,
-          desc: document.getElementById('input-desc').value
-        });
-        e.target.reset();
-        this.toggleDrawer();
-      },
-
-      submitBulk: function(e) {
-        e.preventDefault();
-        const lines = document.getElementById('input-csv').value.split('\n');
-        lines.forEach(l => {
-          const p = l.split(',').map(s => s.trim());
-          if (p.length >= 5) this.addFeature({ customer: p[0], mrr: Number(p[1]), module: p[2], priority: p[3], desc: p.slice(4).join(',') });
-        });
-        e.target.reset();
-        this.toggleDrawer();
-      },
-
-      updateStatus: async function(id, s) {
-        if (this.isMockMode) {
-          const f = this.features.find(x => x.id === id);
-          if (f) f.status = s;
-          this.renderAll();
-          return;
-        }
-        await updateDoc(doc(this.db, "artifacts/strategic-pulse-v1/public/data/features", id), { status: s });
-      },
-
-      analyzeTranscript: function(e) {
-        const btn = e.currentTarget;
-        const input = document.getElementById('intel-input').value;
-        if (!input.trim()) return;
-        
-        btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...`;
-        
-        setTimeout(() => {
-          btn.disabled = false;
-          btn.innerHTML = `<i class="fa-solid fa-wand-sparkles"></i> Process with AI`;
-          const results = document.getElementById('intel-results');
-          if (results) {
-            results.innerHTML = `
-              <div class="text-left w-full animate-in">
-                <div class="flex items-center gap-3 mb-6">
-                  <div class="px-3 py-1 bg-emerald-500 text-[10px] font-black uppercase rounded-lg">High Confidence</div>
-                  <div class="px-3 py-1 bg-indigo-500 text-[10px] font-black uppercase rounded-lg">Sentiment: Urgent</div>
-                </div>
-                <h4 class="text-2xl font-black mb-8 leading-tight">Identified: "Whitelabeling & Custom Branding"</h4>
-                <div class="grid grid-cols-2 gap-4 mb-8">
-                  <div class="bg-indigo-900/50 p-4 rounded-2xl border border-indigo-800">
-                    <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">MRR Expansion</div>
-                    <div class="text-xl font-black">+$18,500</div>
-                  </div>
-                  <div class="bg-indigo-900/50 p-4 rounded-2xl border border-indigo-800">
-                    <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Churn Risk</div>
-                    <div class="text-xl font-black">74%</div>
-                  </div>
-                </div>
-                <div class="space-y-4">
-                  <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Key Extraction</div>
-                  <p class="text-indigo-200 text-sm leading-relaxed">Customer specifically mentioned that Q4 budget depends on 'Visual Consistency'. This maps directly to the <strong>Core Platform</strong> module.</p>
-                </div>
-                <button onclick="App.toggleDrawer()" class="mt-8 w-full py-4 rounded-2xl bg-white text-indigo-900 font-black hover:bg-indigo-50 transition-all">Convert to Backlog Item</button>
-              </div>
-            `;
-          }
-        }, 1800);
-      },
-
-      bypassAuth: function() {
-        this.fallbackToMock();
-      }
-    };
-
-    window.addEventListener('DOMContentLoaded', () => App.init());
+    window.addEventListener('load', () => App.init());
   </script>
 </body>
 </html>
