@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Strategic Pulse</title>
+  <title>Strategic Pulse | Enterprise Revenue Tracking</title>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,9 +12,6 @@
   
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -26,8 +23,8 @@
             sans: ['"Plus Jakarta Sans"', 'sans-serif'],
           },
           colors: {
-            primary: '#4f46e5', // indigo-600
-            background: '#f8fafc', // slate-50
+            primary: '#4f46e5',
+            background: '#f8fafc',
           }
         }
       }
@@ -37,8 +34,8 @@
   <style>
     body {
       background-color: #f8fafc;
-      /* subtle pattern or gradient could go here */
-      background-image: radial-gradient(circle at top right, #e2e8f0 0%, transparent 20%), radial-gradient(circle at bottom left, #e2e8f0 0%, transparent 20%);
+      background-image: radial-gradient(circle at top right, #e2e8f0 0%, transparent 25%), 
+                        radial-gradient(circle at bottom left, #e2e8f0 0%, transparent 25%);
       background-attachment: fixed;
     }
     .glass {
@@ -46,212 +43,196 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.5);
-      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
     }
     .card {
-      border-radius: 2rem; /* 32px */
+      border-radius: 2rem;
     }
-    
-    /* Animations */
     .animate-in {
-      animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(15px);
     }
-    
     @keyframes fadeIn {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      to { opacity: 1; transform: translateY(0); }
     }
-
     .pulse-dot {
       animation: pulse 2s infinite;
     }
     @keyframes pulse {
       0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+      70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
   </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col">
 
-  <!-- Securing Connection Overlay -->
-  <div id="auth-overlay" class="fixed inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center transition-opacity duration-700">
-    <div class="text-indigo-400 mb-4 text-4xl"><i class="fa-solid fa-shield-halved fa-beat"></i></div>
-    <h2 class="text-white text-2xl font-black tracking-tight mb-2">Strategic Pulse</h2>
-    <p class="text-slate-400 text-sm">Securing enterprise connection...</p>
-    <div class="w-48 h-1 bg-slate-800 rounded-full mt-6 overflow-hidden">
-      <div class="h-full bg-indigo-500 w-1/2 animate-[pulse_1s_ease-in-out_infinite] rounded-full"></div>
+  <!-- Connection Overlay -->
+  <div id="auth-overlay" class="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center transition-all duration-1000">
+    <div class="text-indigo-500 mb-6 text-5xl"><i class="fa-solid fa-shield-halved fa-beat"></i></div>
+    <h2 class="text-white text-3xl font-black tracking-tight mb-2">Strategic Pulse</h2>
+    <p class="text-slate-400 text-sm font-medium">Authenticating secure enterprise session...</p>
+    <div class="w-64 h-1.5 bg-slate-900 rounded-full mt-8 overflow-hidden">
+      <div class="h-full bg-indigo-500 w-1/3 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full"></div>
     </div>
-    <!-- Allow bypass if they don't have config -->
-    <button onclick="App.bypassAuth()" class="mt-8 text-xs text-slate-500 hover:text-slate-300 underline">Continue without Firebase (Mock Mode)</button>
+    <button onclick="App.bypassAuth()" class="mt-10 text-xs text-slate-500 hover:text-indigo-400 transition-colors uppercase tracking-widest font-bold">
+      Force Bypass to Local Mode
+    </button>
   </div>
 
-  <!-- Sticky Top Nav -->
-  <nav class="sticky top-0 z-30 glass px-6 py-4 flex items-center justify-between border-b border-white/40">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-        <i class="fa-solid fa-chart-line"></i>
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-40 glass px-8 py-4 flex items-center justify-between border-b border-white/40">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200 text-xl">
+        <i class="fa-solid fa-bolt-lightning"></i>
       </div>
-      <h1 class="text-xl font-extrabold tracking-tight text-slate-900">Strategic Pulse</h1>
-      
-      <!-- Status Badge -->
-      <div id="status-badge" class="ml-4 flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-amber-600 text-xs font-semibold">
-        <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-        <span id="status-text">Connecting...</span>
+      <div>
+        <h1 class="text-xl font-black tracking-tight text-slate-900 leading-none">Strategic Pulse</h1>
+        <div id="status-badge" class="mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">
+          <div class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+          <span id="status-text">Ready</span>
+        </div>
       </div>
     </div>
 
-    <!-- Tab Switcher -->
-    <div class="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50 backdrop-blur-sm">
-      <button onclick="App.switchTab('backlog')" id="tab-backlog" class="px-5 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700">Backlog</button>
-      <button onclick="App.switchTab('roadmap')" id="tab-roadmap" class="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">Roadmap</button>
-      <button onclick="App.switchTab('call-intel')" id="tab-call-intel" class="px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-700 transition-all">Call Intel</button>
+    <div class="flex bg-slate-200/50 p-1 rounded-2xl border border-slate-300/30">
+      <button onclick="App.switchTab('backlog')" id="tab-backlog" class="px-6 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700">Backlog</button>
+      <button onclick="App.switchTab('roadmap')" id="tab-roadmap" class="px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-all">Roadmap</button>
+      <button onclick="App.switchTab('call-intel')" id="tab-call-intel" class="px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-all">Call Intel</button>
     </div>
 
-    <!-- Actions -->
-    <div class="flex items-center gap-3">
-      <button onclick="App.toggleDrawer()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2">
-        <i class="fa-solid fa-plus"></i> Log Request
-      </button>
-    </div>
+    <button onclick="App.toggleDrawer()" class="px-6 py-3 rounded-2xl bg-slate-900 hover:bg-indigo-600 text-white text-sm font-bold shadow-lg transition-all flex items-center gap-2">
+      <i class="fa-solid fa-plus text-xs"></i> Log Request
+    </button>
   </nav>
 
-  <!-- Main Header Stats -->
-  <header class="px-8 py-8 max-w-7xl mx-auto w-full">
+  <!-- Stats Header -->
+  <header class="px-8 pt-10 pb-6 max-w-7xl mx-auto w-full">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <!-- Stat Card 1 -->
-      <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300">
+      <div class="glass card p-8 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
         <div class="flex items-center justify-between mb-4">
-          <span class="text-slate-500 text-sm font-bold uppercase tracking-wider">Total Backlog</span>
-          <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-layer-group text-xs"></i></div>
+          <span class="text-slate-400 text-xs font-black uppercase tracking-widest">Backlog Items</span>
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
         </div>
-        <div class="text-4xl font-black text-slate-900" id="stat-total-backlog">--</div>
+        <div class="text-5xl font-black text-slate-900" id="stat-total-backlog">0</div>
       </div>
-      <!-- Stat Card 2 -->
-      <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300">
+      
+      <div class="glass card p-8 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group">
         <div class="flex items-center justify-between mb-4">
-          <span class="text-slate-500 text-sm font-bold uppercase tracking-wider">MRR Impact</span>
-          <div class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-sack-dollar text-xs"></i></div>
+          <span class="text-slate-400 text-xs font-black uppercase tracking-widest">Revenue Impact</span>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+            <i class="fa-solid fa-dollar-sign"></i>
+          </div>
         </div>
-        <div class="text-4xl font-black text-emerald-600" id="stat-mrr-impact">$0k</div>
+        <div class="text-5xl font-black text-emerald-600" id="stat-mrr-impact">$0k</div>
       </div>
-      <!-- Stat Card 3 -->
-      <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300 relative overflow-hidden">
-        <div class="absolute -right-4 -top-4 w-24 h-24 bg-rose-50 rounded-full blur-2xl z-0"></div>
+
+      <div class="glass card p-8 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden">
+        <div class="absolute -right-6 -top-6 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl"></div>
         <div class="flex items-center justify-between mb-4 relative z-10">
-          <span class="text-slate-500 text-sm font-bold uppercase tracking-wider">Critical Needs</span>
-          <div class="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation text-xs pulse-dot"></i></div>
+          <span class="text-slate-400 text-xs font-black uppercase tracking-widest">Critical Gaps</span>
+          <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors">
+            <i class="fa-solid fa-fire-flame-curved pulse-dot rounded-full"></i>
+          </div>
         </div>
-        <div class="text-4xl font-black text-rose-600 relative z-10" id="stat-critical-needs">--</div>
+        <div class="text-5xl font-black text-rose-600 relative z-10" id="stat-critical-needs">0</div>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Area -->
-  <main class="flex-1 px-8 pb-12 max-w-7xl mx-auto w-full relative">
+  <!-- Content -->
+  <main class="flex-1 px-8 pb-20 max-w-7xl mx-auto w-full">
     
     <!-- View: Backlog -->
-    <div id="view-backlog" class="animate-in w-full">
-      <div class="glass card overflow-hidden">
+    <div id="view-backlog" class="animate-in">
+      <div class="glass card overflow-hidden border border-slate-200">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="border-b border-slate-200/50 bg-slate-50/50 text-xs uppercase tracking-wider font-bold text-slate-500">
-                <th class="p-4 pl-6">Customer</th>
-                <th class="p-4">Description</th>
-                <th class="p-4">Priority</th>
-                <th class="p-4">Module</th>
-                <th class="p-4">MRR Value</th>
-                <th class="p-4 pr-6">Status</th>
+              <tr class="bg-slate-50/80 text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 border-b border-slate-200">
+                <th class="p-5 pl-8">Account</th>
+                <th class="p-5">Feature Need</th>
+                <th class="p-5 text-center">Priority</th>
+                <th class="p-5">Module</th>
+                <th class="p-5">MRR</th>
+                <th class="p-5 pr-8">Lifecycle</th>
               </tr>
             </thead>
-            <tbody id="backlog-tbody" class="divide-y divide-slate-100">
-              <!-- Rows will be injected here -->
-            </tbody>
+            <tbody id="backlog-tbody" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
-        <!-- Empty State -->
-        <div id="backlog-empty" class="hidden p-12 text-center flex-col items-center justify-center">
-          <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 text-2xl mx-auto mb-4">
-            <i class="fa-solid fa-inbox"></i>
+        <div id="backlog-empty" class="hidden p-24 text-center flex-col items-center justify-center">
+          <div class="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 text-3xl mb-4 border border-slate-100">
+            <i class="fa-solid fa-folder-open"></i>
           </div>
-          <h3 class="text-lg font-bold text-slate-700">No requests logged yet</h3>
-          <p class="text-slate-500 mt-1">Start by clicking 'Log Request' in the top right.</p>
+          <h3 class="text-xl font-black text-slate-800">Clear Skies</h3>
+          <p class="text-slate-500 mt-2 max-w-xs mx-auto">No revenue-linked features found. Start by logging a customer request.</p>
         </div>
       </div>
     </div>
 
     <!-- View: Roadmap -->
-    <div id="view-roadmap" class="hidden w-full">
-      <div id="roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Cards injected here -->
-      </div>
+    <div id="view-roadmap" class="hidden animate-in">
+      <div id="roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
     </div>
 
-    <!-- View: Call Intelligence -->
-    <div id="view-call-intel" class="hidden w-full h-full min-h-[500px]">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-        <!-- Left: Input -->
-        <div class="glass card p-6 flex flex-col h-full">
-          <h3 class="text-lg font-black text-slate-800 mb-2">Meeting Transcript</h3>
-          <p class="text-sm text-slate-500 mb-4">Paste transcript here to extract feature requests and sentiment.</p>
-          <textarea id="intel-input" class="w-full flex-1 bg-white border border-slate-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono" placeholder="[00:00:15] Customer: We really need a way to export these reports to PDF. If we don't get that soon, we might have to look at other tools..."></textarea>
-          <button onclick="App.analyzeTranscript(event)" class="mt-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors w-full flex items-center justify-center gap-2">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Transcript
+    <!-- View: Call Intel -->
+    <div id="view-call-intel" class="hidden animate-in h-[600px]">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+        <div class="glass card p-8 flex flex-col shadow-inner bg-slate-50/50">
+          <h3 class="text-xl font-black text-slate-900 mb-2">Transcript Extraction</h3>
+          <p class="text-sm text-slate-500 mb-6">Paste raw call notes or transcripts to identify key requirements.</p>
+          <textarea id="intel-input" class="flex-1 w-full p-6 bg-white border border-slate-200 rounded-3xl text-sm focus:ring-4 focus:ring-indigo-500/10 outline-none resize-none font-medium leading-relaxed" placeholder="[04:12] CEO: If we don't have better dashboarding by Q4, we will churn. We need it to be white-labeled..."></textarea>
+          <button onclick="App.analyzeTranscript(event)" class="mt-6 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black transition-all flex items-center justify-center gap-3">
+            <i class="fa-solid fa-wand-sparkles"></i> Process with AI
           </button>
         </div>
-        <!-- Right: Results -->
-        <div class="glass card p-6 flex flex-col bg-indigo-50/30">
-          <h3 class="text-lg font-black text-slate-800 mb-4">AI Analysis</h3>
-          <div id="intel-results" class="flex-1 flex flex-col items-center justify-center text-center">
-            <div class="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center text-indigo-300 text-2xl mb-4">
-              <i class="fa-solid fa-robot"></i>
-            </div>
-            <p class="text-slate-500 text-sm">Awaiting transcript...</p>
+        
+        <div id="intel-results" class="glass card p-8 bg-indigo-950 text-white flex flex-col justify-center items-center text-center overflow-y-auto">
+          <div class="w-20 h-20 bg-indigo-900 rounded-full flex items-center justify-center text-indigo-400 text-3xl mb-6 shadow-2xl">
+            <i class="fa-solid fa-brain"></i>
           </div>
+          <h4 class="text-lg font-bold mb-2">Analyzer Standby</h4>
+          <p class="text-indigo-300 text-sm max-w-xs">Upload a transcript to see extracted modules, sentiment, and revenue opportunities.</p>
         </div>
       </div>
     </div>
-
   </main>
 
-  <!-- Slide-out Drawer for Data Entry -->
-  <div id="drawer-backdrop" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 hidden transition-opacity opacity-0" onclick="App.toggleDrawer()"></div>
-  <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-slate-100">
-    <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-      <h2 class="text-xl font-black text-slate-800">Log New Request</h2>
-      <button onclick="App.toggleDrawer()" class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors">
+  <!-- Drawer -->
+  <div id="drawer-backdrop" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-50 hidden transition-opacity opacity-0" onclick="App.toggleDrawer()"></div>
+  <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-[-20px_0_60px_rgba(0,0,0,0.1)] z-[60] transform translate-x-full transition-transform duration-500 ease-in-out flex flex-col">
+    <div class="p-8 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-2xl font-black text-slate-900">New Insight</h2>
+      <button onclick="App.toggleDrawer()" class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
     
-    <div class="flex-1 overflow-y-auto p-6">
-      
-      <!-- Tabs within Drawer -->
-      <div class="flex border-b border-slate-200 mb-6">
-        <button onclick="App.switchDrawerTab('manual')" id="drawertab-manual" class="px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm">Manual Entry</button>
-        <button onclick="App.switchDrawerTab('bulk')" id="drawertab-bulk" class="px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-sm">Bulk Import</button>
+    <div class="p-8 space-y-6 flex-1 overflow-y-auto">
+      <div class="flex p-1 bg-slate-100 rounded-2xl mb-4">
+        <button onclick="App.switchDrawerTab('manual')" id="drawertab-manual" class="flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl bg-white shadow-sm text-indigo-600 transition-all">Manual</button>
+        <button onclick="App.switchDrawerTab('bulk')" id="drawertab-bulk" class="flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl text-slate-400 transition-all">Bulk CSV</button>
       </div>
 
-      <!-- Manual Form -->
       <form id="form-manual" onsubmit="App.submitManual(event)" class="space-y-5">
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Customer Name</label>
-          <input required type="text" id="input-customer" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Acme Corp">
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Customer Account</label>
+          <input required id="input-customer" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all" placeholder="Enter Company Name">
         </div>
-        
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">MRR Impact ($)</label>
-            <input required type="number" id="input-mrr" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="5000">
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">MRR Value ($)</label>
+            <input required type="number" id="input-mrr" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all" placeholder="5000">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Priority</label>
-            <select id="input-priority" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none">
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Priority</label>
+            <select id="input-priority" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all appearance-none cursor-pointer">
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
               <option value="High">High</option>
@@ -259,151 +240,145 @@
             </select>
           </div>
         </div>
-
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Product Module</label>
-          <select id="input-module" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none">
-            <option value="Core Platform">Core Platform</option>
-            <option value="Reporting & Analytics">Reporting & Analytics</option>
-            <option value="Billing">Billing</option>
-            <option value="Integrations">Integrations</option>
-            <option value="User Management">User Management</option>
-            <option value="Security">Security</option>
-            <option value="Mobile App">Mobile App</option>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Product Module</label>
+          <select id="input-module" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all appearance-none cursor-pointer">
+            <option>Core Platform</option>
+            <option>Reporting & BI</option>
+            <option>Integrations</option>
+            <option>Security/SSO</option>
+            <option>Billing & Tax</option>
+            <option>Mobile SDK</option>
+            <option>Onboarding</option>
           </select>
         </div>
-
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Description</label>
-          <textarea required id="input-desc" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none" placeholder="Describe the feature request..."></textarea>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Need Description</label>
+          <textarea required id="input-desc" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all resize-none" placeholder="What does the customer actually need?"></textarea>
         </div>
-
-        <button type="submit" id="btn-save-manual" disabled class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold transition-colors mt-4">
-          Save Request
+        <button type="submit" id="btn-save-manual" disabled class="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-black transition-all mt-4">
+          Save Record
         </button>
       </form>
 
-      <!-- Bulk Import Form -->
       <form id="form-bulk" onsubmit="App.submitBulk(event)" class="hidden space-y-4 h-full flex flex-col">
-        <p class="text-sm text-slate-500">Paste CSV data here. Format:<br><code class="text-xs bg-slate-100 p-1 rounded">Account, MRR, Module, Priority, Description</code></p>
-        <textarea required id="input-csv" class="w-full flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono whitespace-pre" placeholder="Acme, 5000, Reporting & Analytics, High, Need PDF export..."></textarea>
-        
-        <button type="submit" id="btn-save-bulk" disabled class="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold transition-colors mt-auto">
-          Import CSV
+        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block">CSV Block</label>
+        <textarea required id="input-csv" class="flex-1 w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-[11px] font-mono focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all" placeholder="Account, MRR, Module, Priority, Description"></textarea>
+        <button type="submit" id="btn-save-bulk" disabled class="w-full py-4 rounded-2xl bg-slate-950 hover:bg-black disabled:bg-slate-200 text-white font-black transition-all">
+          Import Batch
         </button>
       </form>
-
     </div>
   </div>
 
-
-  <!-- Firebase Modular SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    // --- Firebase Configuration ---
-    // REPLACE THIS WITH YOUR ACTUAL FIREBASE CONFIG
     const firebaseConfig = {
-      apiKey: "AIzaSyDummyKeyForPlaceholderOnly",
-      authDomain: "strategic-pulse-placeholder.firebaseapp.com",
-      projectId: "strategic-pulse-placeholder",
-      storageBucket: "strategic-pulse-placeholder.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abcdef123456"
+      apiKey: "",
+      authDomain: "",
+      projectId: "",
+      storageBucket: "",
+      messagingSenderId: "",
+      appId: ""
     };
 
-    // Global App State & Logic
     window.App = {
       isMockMode: false,
       features: [],
       currentTab: 'backlog',
       isDrawerOpen: false,
       drawerTab: 'manual',
-      
-      // Firebase instances
-      app: null,
-      auth: null,
       db: null,
+      auth: null,
+      initTimer: null,
 
       init: function() {
+        // SAFETY TIMEOUT: If Firebase takes > 3s, force into Mock Mode
+        this.initTimer = setTimeout(() => {
+          if (!this.db) {
+            console.log("Firebase connection timed out. Entering Local Mode.");
+            this.fallbackToMock();
+          }
+        }, 3000);
+
+        if (!firebaseConfig.apiKey) {
+          this.fallbackToMock();
+          return;
+        }
+
         try {
-          this.app = initializeApp(firebaseConfig);
-          this.auth = getAuth(this.app);
-          this.db = getFirestore(this.app);
+          const app = initializeApp(firebaseConfig);
+          this.auth = getAuth(app);
+          this.db = getFirestore(app);
 
           onAuthStateChanged(this.auth, (user) => {
             if (user) {
               this.handleAuthSuccess();
             } else {
-              // Sign in anonymously
-              signInAnonymously(this.auth).catch((error) => {
-                console.error("Auth failed:", error);
-                this.fallbackToMock();
-              });
+              signInAnonymously(this.auth).catch(() => this.fallbackToMock());
             }
           });
         } catch (e) {
-          console.error("Firebase init failed:", e);
+          console.error("Init Error:", e);
           this.fallbackToMock();
         }
       },
 
-      bypassAuth: function() {
-        this.fallbackToMock();
-      },
-
       fallbackToMock: function() {
-        console.warn("Using Mock Mode. Data will not persist.");
+        if (this.isMockMode) return;
+        clearTimeout(this.initTimer);
         this.isMockMode = true;
-        this.handleAuthSuccess();
         
-        // Load some dummy data
+        // Sample Data for Local Testing
         if (this.features.length === 0) {
           this.features = [
-            { id: '1', customer: 'Acme Corp', mrr: 15000, priority: 'Critical', module: 'Reporting & Analytics', desc: 'Needs ability to schedule automated PDF exports for board meetings.', status: 'Logged' },
-            { id: '2', customer: 'Globex', mrr: 2500, priority: 'Medium', module: 'Integrations', desc: 'Salesforce sync is failing for custom objects.', status: 'In Progress' },
-            { id: '3', customer: 'Initech', mrr: 8000, priority: 'High', module: 'Security', desc: 'SSO via Okta is a hard requirement for Q3 renewal.', status: 'Logged' }
+            { id: 'm1', customer: 'Velocity SaaS', mrr: 24000, priority: 'Critical', module: 'Security/SSO', desc: 'SAML 2.0 integration required for their Enterprise tier rollout.', status: 'In Progress' },
+            { id: 'm2', customer: 'Global Logics', mrr: 12500, priority: 'High', module: 'Reporting & BI', desc: 'Drill-down capabilities for Q3 revenue reports.', status: 'Logged' },
+            { id: 'm3', customer: 'Stellar Tech', mrr: 8200, priority: 'Medium', module: 'Integrations', desc: 'Native Hubspot connector for two-way sync.', status: 'Shipped' }
           ];
         }
+        
+        this.handleAuthSuccess();
         this.renderAll();
       },
 
       handleAuthSuccess: function() {
-        // Update UI
+        clearTimeout(this.initTimer);
         const overlay = document.getElementById('auth-overlay');
-        overlay.classList.add('opacity-0');
-        setTimeout(() => overlay.style.display = 'none', 700);
-
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 1000);
+        }
+        
         const badge = document.getElementById('status-badge');
-        badge.className = "ml-4 flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-semibold";
-        badge.innerHTML = `<div class="w-2 h-2 rounded-full bg-emerald-500"></div><span>System Live</span>`;
+        const text = document.getElementById('status-text');
+        if (badge && text) {
+          badge.className = "mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-500";
+          text.innerText = this.isMockMode ? "Offline (Local Only)" : "Online";
+        }
 
-        // Enable save buttons
         document.getElementById('btn-save-manual').disabled = false;
         document.getElementById('btn-save-bulk').disabled = false;
 
-        if (!this.isMockMode) {
-          this.startSync();
-        }
+        if (!this.isMockMode) this.startSync();
       },
 
       startSync: function() {
-        const q = query(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), orderBy("createdAt", "desc"));
-        onSnapshot(q, (snapshot) => {
-          this.features = [];
-          snapshot.forEach((doc) => {
-            this.features.push({ id: doc.id, ...doc.data() });
+        try {
+          const q = query(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), orderBy("createdAt", "desc"));
+          onSnapshot(q, (snapshot) => {
+            this.features = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            this.renderAll();
+          }, (err) => {
+            console.warn("Sync Error:", err);
+            if (err.code === 'permission-denied') this.fallbackToMock();
           });
-          this.renderAll();
-        }, (error) => {
-          console.error("Sync error:", error);
-          if (error.code === 'permission-denied') {
-             console.warn("Permission denied for Firestore. Falling back to mock.");
-             this.fallbackToMock();
-          }
-        });
+        } catch(e) {
+          this.fallbackToMock();
+        }
       },
 
       renderAll: function() {
@@ -414,320 +389,205 @@
 
       updateStats: function() {
         document.getElementById('stat-total-backlog').innerText = this.features.length;
-        
-        const totalMrr = this.features.reduce((sum, f) => sum + Number(f.mrr || 0), 0);
-        document.getElementById('stat-mrr-impact').innerText = \`$\${(totalMrr / 1000).toFixed(1)}k\`;
-
-        const criticalCount = this.features.filter(f => f.priority === 'Critical').length;
-        document.getElementById('stat-critical-needs').innerText = criticalCount;
-      },
-
-      getPriorityColor: function(priority) {
-        switch(priority) {
-          case 'Critical': return { dot: 'bg-rose-500 pulse-dot', text: 'text-rose-700', bg: 'bg-rose-50' };
-          case 'High': return { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' };
-          case 'Medium': return { dot: 'bg-slate-400', text: 'text-slate-700', bg: 'bg-slate-100' };
-          case 'Low': return { dot: 'bg-slate-300', text: 'text-slate-600', bg: 'bg-slate-50' };
-          default: return { dot: 'bg-slate-300', text: 'text-slate-600', bg: 'bg-slate-50' };
-        }
+        const mrr = this.features.reduce((s, f) => s + (Number(f.mrr) || 0), 0);
+        document.getElementById('stat-mrr-impact').innerText = `\${(mrr / 1000).toFixed(1)}k`;
+        document.getElementById('stat-critical-needs').innerText = this.features.filter(f => f.priority === 'Critical').length;
       },
 
       renderBacklog: function() {
         const tbody = document.getElementById('backlog-tbody');
         const empty = document.getElementById('backlog-empty');
+        if (!tbody) return;
         
         if (this.features.length === 0) {
           tbody.innerHTML = '';
           empty.classList.remove('hidden');
-          empty.classList.add('flex');
           return;
         }
 
         empty.classList.add('hidden');
-        empty.classList.remove('flex');
-        
-        tbody.innerHTML = this.features.map((f, i) => {
-          const colors = this.getPriorityColor(f.priority);
-          // Apply animation delay for staggering
-          const delay = i * 0.05;
-          
-          return \`
-            <tr class="hover:bg-slate-50/50 transition-colors group animate-in" style="animation-delay: \${delay}s; opacity: 0;">
-              <td class="p-4 pl-6 border-slate-100">
-                <div class="font-bold text-slate-800 text-sm">\${f.customer}</div>
-              </td>
-              <td class="p-4 border-slate-100 max-w-xs">
-                <div class="text-sm text-slate-600 line-clamp-2" title="\${f.desc}">\${f.desc}</div>
-              </td>
-              <td class="p-4 border-slate-100">
-                <div class="flex items-center gap-2 \${colors.bg} \${colors.text} px-2.5 py-1 rounded-full w-max text-xs font-bold border border-white">
-                  <div class="w-1.5 h-1.5 rounded-full \${colors.dot}"></div>
-                  \${f.priority}
-                </div>
-              </td>
-              <td class="p-4 border-slate-100">
-                <span class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-semibold whitespace-nowrap">\${f.module}</span>
-              </td>
-              <td class="p-4 border-slate-100">
-                <div class="font-mono font-bold text-slate-700 text-sm">$\${Number(f.mrr).toLocaleString()}</div>
-              </td>
-              <td class="p-4 pr-6 border-slate-100">
-                <select onchange="App.updateStatus('\${f.id}', this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
-                  <option value="Logged" \${f.status === 'Logged' ? 'selected' : ''}>Logged</option>
-                  <option value="In Progress" \${f.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                  <option value="Shipped" \${f.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
-                </select>
-              </td>
-            </tr>
-          \`;
-        }).join('');
+        tbody.innerHTML = this.features.map((f, i) => `
+          <tr class="hover:bg-slate-50 transition-colors animate-in" style="animation-delay: ${i * 0.05}s">
+            <td class="p-5 pl-8 font-black text-slate-900 text-sm">${f.customer}</td>
+            <td class="p-5 text-sm text-slate-500 max-w-md"><div class="line-clamp-1">${f.desc}</div></td>
+            <td class="p-5">
+              <div class="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${this.getPriorityStyle(f.priority)}">
+                <div class="w-1.5 h-1.5 rounded-full bg-current ${f.priority === 'Critical' ? 'pulse-dot' : ''}"></div>
+                ${f.priority}
+              </div>
+            </td>
+            <td class="p-5"><span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">${f.module}</span></td>
+            <td class="p-5 font-mono font-bold text-slate-700 text-sm">$${Number(f.mrr).toLocaleString()}</td>
+            <td class="p-5 pr-8">
+              <select onchange="App.updateStatus('${f.id}', this.value)" class="text-[11px] font-bold bg-white border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer">
+                <option ${f.status === 'Logged' ? 'selected' : ''}>Logged</option>
+                <option ${f.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                <option ${f.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+              </select>
+            </td>
+          </tr>
+        `).join('');
+      },
+
+      getPriorityStyle: function(p) {
+        if (p === 'Critical') return "bg-rose-50 text-rose-600";
+        if (p === 'High') return "bg-amber-50 text-amber-600";
+        if (p === 'Medium') return "bg-slate-100 text-slate-600";
+        return "bg-slate-50 text-slate-400";
       },
 
       renderRoadmap: function() {
         const grid = document.getElementById('roadmap-grid');
-        
-        // Aggregate by module
-        const modules = {};
+        if (!grid) return;
+        const groups = {};
         this.features.forEach(f => {
-          if (!modules[f.module]) {
-            modules[f.module] = { module: f.module, mrr: 0, count: 0 };
-          }
-          modules[f.module].mrr += Number(f.mrr);
-          modules[f.module].count += 1;
+          if (!groups[f.module]) groups[f.module] = { mrr: 0, count: 0 };
+          groups[f.module].mrr += Number(f.mrr);
+          groups[f.module].count++;
         });
 
-        // Sort by MRR descending to get "Focus Rank"
-        const sorted = Object.values(modules).sort((a, b) => b.mrr - a.mrr);
-
-        if (sorted.length === 0) {
-          grid.innerHTML = \`<div class="col-span-full text-center text-slate-400 py-12">No data available for roadmap.</div>\`;
-          return;
-        }
-
-        grid.innerHTML = sorted.map((m, index) => {
-          const rank = index + 1;
-          const rankColor = rank === 1 ? 'text-amber-500 bg-amber-50' : rank === 2 ? 'text-slate-400 bg-slate-50' : 'text-orange-400 bg-orange-50';
-          
-          return \`
-            <div class="glass card p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300 animate-in" style="animation-delay: \${index * 0.1}s; opacity: 0;">
-              <div class="flex justify-between items-start mb-6">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 font-black">
-                    #\${rank}
-                  </div>
-                  <div>
-                    <h3 class="font-extrabold text-lg text-slate-800 leading-tight">\${m.module}</h3>
-                    <p class="text-xs text-slate-500 font-semibold">\${m.count} Requests</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50">
-                <p class="text-xs font-bold text-slate-500 uppercase mb-1">Pipeline MRR</p>
-                <div class="text-2xl font-black text-indigo-700">$\${(m.mrr / 1000).toFixed(1)}k</div>
+        const sorted = Object.entries(groups).sort((a,b) => b[1].mrr - a[1].mrr);
+        grid.innerHTML = sorted.map(([name, data], i) => `
+          <div class="glass card p-8 group hover:border-indigo-200 transition-all duration-500 animate-in" style="animation-delay: ${i * 0.1}s">
+            <div class="flex justify-between items-start mb-8">
+              <div class="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">#${i+1}</div>
+              <div class="text-right">
+                <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume</div>
+                <div class="font-bold text-slate-900">${data.count} Leads</div>
               </div>
             </div>
-          \`;
-        }).join('');
+            <h3 class="text-xl font-black text-slate-900 mb-6 leading-tight">${name}</h3>
+            <div class="bg-indigo-50 rounded-2xl p-5 border border-indigo-100/50">
+              <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Impact Potential</div>
+              <div class="text-3xl font-black text-indigo-700">$${(data.mrr/1000).toFixed(1)}k</div>
+            </div>
+          </div>
+        `).join('');
       },
 
-      switchTab: function(tabId) {
-        this.currentTab = tabId;
-        
-        // Update nav buttons
-        ['backlog', 'roadmap', 'call-intel'].forEach(id => {
-          const btn = document.getElementById(\`tab-\${id}\`);
-          if (id === tabId) {
-            btn.className = "px-5 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700";
-          } else {
-            btn.className = "px-5 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-700 transition-all";
-          }
+      switchTab: function(id) {
+        ['backlog', 'roadmap', 'call-intel'].forEach(t => {
+          const view = document.getElementById('view-' + t);
+          const btn = document.getElementById('tab-' + t);
+          if (view) view.classList.toggle('hidden', t !== id);
+          if (btn) btn.className = t === id ? "px-6 py-2 rounded-xl text-sm font-bold transition-all bg-white shadow-sm text-indigo-700" : "px-6 py-2 rounded-xl text-sm font-bold text-slate-500 hover:text-slate-800 transition-all";
         });
-
-        // Update views
-        document.getElementById('view-backlog').classList.add('hidden');
-        document.getElementById('view-roadmap').classList.add('hidden');
-        document.getElementById('view-call-intel').classList.add('hidden');
-
-        const activeView = document.getElementById(\`view-\${tabId}\`);
-        activeView.classList.remove('hidden');
-        
-        // Re-trigger animation
-        activeView.classList.remove('animate-in');
-        void activeView.offsetWidth; // trigger reflow
-        activeView.classList.add('animate-in');
       },
 
       toggleDrawer: function() {
         this.isDrawerOpen = !this.isDrawerOpen;
-        const drawer = document.getElementById('drawer');
-        const backdrop = document.getElementById('drawer-backdrop');
-
-        if (this.isDrawerOpen) {
-          drawer.classList.remove('translate-x-full');
-          backdrop.classList.remove('hidden');
-          // slight delay for opacity transition
-          setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
-        } else {
-          drawer.classList.add('translate-x-full');
-          backdrop.classList.add('opacity-0');
-          setTimeout(() => backdrop.classList.add('hidden'), 300);
+        const d = document.getElementById('drawer');
+        const b = document.getElementById('drawer-backdrop');
+        if (d) d.classList.toggle('translate-x-full', !this.isDrawerOpen);
+        if (b) {
+          b.classList.toggle('hidden', !this.isDrawerOpen);
+          setTimeout(() => b.classList.toggle('opacity-0', !this.isDrawerOpen), 10);
         }
       },
 
-      switchDrawerTab: function(tab) {
-        this.drawerTab = tab;
-        const btnMan = document.getElementById('drawertab-manual');
-        const btnBulk = document.getElementById('drawertab-bulk');
-        const formMan = document.getElementById('form-manual');
-        const formBulk = document.getElementById('form-bulk');
-
-        if (tab === 'manual') {
-          btnMan.className = "px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm";
-          btnBulk.className = "px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-sm";
-          formMan.classList.remove('hidden');
-          formBulk.classList.add('hidden');
-        } else {
-          btnBulk.className = "px-4 py-2 border-b-2 border-indigo-600 text-indigo-600 font-bold text-sm";
-          btnMan.className = "px-4 py-2 border-b-2 border-transparent text-slate-500 font-bold text-sm";
-          formBulk.classList.remove('hidden');
-          formBulk.classList.add('flex');
-          formMan.classList.add('hidden');
-        }
+      switchDrawerTab: function(t) {
+        this.drawerTab = t;
+        const isM = t === 'manual';
+        const fManual = document.getElementById('form-manual');
+        const fBulk = document.getElementById('form-bulk');
+        const bManual = document.getElementById('drawertab-manual');
+        const bBulk = document.getElementById('drawertab-bulk');
+        if (fManual) fManual.classList.toggle('hidden', !isM);
+        if (fBulk) fBulk.classList.toggle('hidden', isM);
+        if (bManual) bManual.className = isM ? "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl bg-white shadow-sm text-indigo-600" : "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl text-slate-400 transition-all";
+        if (bBulk) bBulk.className = !isM ? "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl bg-white shadow-sm text-indigo-600" : "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-xl text-slate-400 transition-all";
       },
 
       async addFeature(data) {
         if (this.isMockMode) {
-          this.features.unshift({
-            id: Date.now().toString() + Math.random().toString(),
-            ...data,
-            status: 'Logged',
-            createdAt: new Date()
-          });
+          this.features.unshift({ id: Date.now().toString(), ...data, status: 'Logged', createdAt: new Date() });
           this.renderAll();
           return;
         }
-
-        try {
-          await addDoc(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), {
-            ...data,
-            status: 'Logged',
-            createdAt: serverTimestamp()
-          });
-        } catch(e) {
-          console.error("Error adding document: ", e);
-          alert("Failed to save. Check console.");
-        }
-      },
-
-      async updateStatus(id, newStatus) {
-        if (this.isMockMode) {
-          const feature = this.features.find(f => f.id === id);
-          if (feature) feature.status = newStatus;
-          return;
-        }
-
-        try {
-          const docRef = doc(this.db, "artifacts/strategic-pulse-v1/public/data/features", id);
-          await updateDoc(docRef, { status: newStatus });
-        } catch(e) {
-          console.error("Error updating document: ", e);
-        }
+        await addDoc(collection(this.db, "artifacts/strategic-pulse-v1/public/data/features"), { ...data, status: 'Logged', createdAt: serverTimestamp() });
       },
 
       submitManual: function(e) {
         e.preventDefault();
-        const data = {
+        this.addFeature({
           customer: document.getElementById('input-customer').value,
           mrr: Number(document.getElementById('input-mrr').value),
           priority: document.getElementById('input-priority').value,
           module: document.getElementById('input-module').value,
           desc: document.getElementById('input-desc').value
-        };
-        
-        this.addFeature(data);
+        });
         e.target.reset();
         this.toggleDrawer();
       },
 
       submitBulk: function(e) {
         e.preventDefault();
-        const text = document.getElementById('input-csv').value;
-        const lines = text.split('\n');
-        
-        lines.forEach(line => {
-          if (!line.trim()) return;
-          const parts = line.split(',').map(p => p.trim());
-          if (parts.length >= 5) {
-            this.addFeature({
-              customer: parts[0],
-              mrr: Number(parts[1]) || 0,
-              module: parts[2],
-              priority: parts[3],
-              desc: parts.slice(4).join(',')
-            });
-          }
+        const lines = document.getElementById('input-csv').value.split('\n');
+        lines.forEach(l => {
+          const p = l.split(',').map(s => s.trim());
+          if (p.length >= 5) this.addFeature({ customer: p[0], mrr: Number(p[1]), module: p[2], priority: p[3], desc: p.slice(4).join(',') });
         });
-
         e.target.reset();
         this.toggleDrawer();
       },
 
-      analyzeTranscript: function(e) {
-        const btn = e.currentTarget;
-        const origHtml = btn.innerHTML;
-        btn.innerHTML = \`<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...\`;
-        btn.disabled = true;
-        
-        const results = document.getElementById('intel-results');
-        
-        // Simulate AI delay
-        setTimeout(() => {
-          btn.innerHTML = origHtml;
-          btn.disabled = false;
-          
-          results.innerHTML = \`
-            <div class="text-left w-full space-y-4 animate-in">
-              <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-xs font-bold text-slate-500 uppercase">Sentiment</span>
-                  <span class="bg-rose-50 text-rose-600 text-xs font-bold px-2 py-1 rounded">Frustrated / At-Risk</span>
-                </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full" style="width: 85%"></div></div>
-              </div>
-              
-              <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm">
-                <div class="text-xs font-bold text-slate-500 uppercase mb-2">Extracted Feature Need</div>
-                <p class="text-sm font-bold text-slate-800">Automated PDF Exports</p>
-                <p class="text-xs text-slate-500 mt-1">Module: Reporting & Analytics</p>
-              </div>
-
-              <div class="bg-white p-4 rounded-xl border border-indigo-100 shadow-sm">
-                <div class="text-xs font-bold text-slate-500 uppercase mb-1">Revenue Expansion Potential</div>
-                <div class="text-2xl font-black text-emerald-600">High</div>
-                <p class="text-xs text-slate-500">Feature could unlock higher tier upgrade.</p>
-              </div>
-              
-              <button onclick="App.populateFromIntel()" class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-bold rounded-xl transition-colors mt-2">
-                Draft as Feature Request
-              </button>
-            </div>
-          \`;
-        }, 1500);
+      updateStatus: async function(id, s) {
+        if (this.isMockMode) {
+          const f = this.features.find(x => x.id === id);
+          if (f) f.status = s;
+          this.renderAll();
+          return;
+        }
+        await updateDoc(doc(this.db, "artifacts/strategic-pulse-v1/public/data/features", id), { status: s });
       },
 
-      populateFromIntel: function() {
-        this.toggleDrawer();
-        this.switchDrawerTab('manual');
-        document.getElementById('input-desc').value = "Requires automated PDF exports for reporting.";
-        document.getElementById('input-priority').value = "Critical";
-        document.getElementById('input-module').value = "Reporting & Analytics";
+      analyzeTranscript: function(e) {
+        const btn = e.currentTarget;
+        const input = document.getElementById('intel-input').value;
+        if (!input.trim()) return;
+        
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...`;
+        
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-wand-sparkles"></i> Process with AI`;
+          const results = document.getElementById('intel-results');
+          if (results) {
+            results.innerHTML = `
+              <div class="text-left w-full animate-in">
+                <div class="flex items-center gap-3 mb-6">
+                  <div class="px-3 py-1 bg-emerald-500 text-[10px] font-black uppercase rounded-lg">High Confidence</div>
+                  <div class="px-3 py-1 bg-indigo-500 text-[10px] font-black uppercase rounded-lg">Sentiment: Urgent</div>
+                </div>
+                <h4 class="text-2xl font-black mb-8 leading-tight">Identified: "Whitelabeling & Custom Branding"</h4>
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                  <div class="bg-indigo-900/50 p-4 rounded-2xl border border-indigo-800">
+                    <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">MRR Expansion</div>
+                    <div class="text-xl font-black">+$18,500</div>
+                  </div>
+                  <div class="bg-indigo-900/50 p-4 rounded-2xl border border-indigo-800">
+                    <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Churn Risk</div>
+                    <div class="text-xl font-black">74%</div>
+                  </div>
+                </div>
+                <div class="space-y-4">
+                  <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Key Extraction</div>
+                  <p class="text-indigo-200 text-sm leading-relaxed">Customer specifically mentioned that Q4 budget depends on 'Visual Consistency'. This maps directly to the <strong>Core Platform</strong> module.</p>
+                </div>
+                <button onclick="App.toggleDrawer()" class="mt-8 w-full py-4 rounded-2xl bg-white text-indigo-900 font-black hover:bg-indigo-50 transition-all">Convert to Backlog Item</button>
+              </div>
+            `;
+          }
+        }, 1800);
+      },
+
+      bypassAuth: function() {
+        this.fallbackToMock();
       }
     };
 
-    // Initialize on load
-    window.onload = () => App.init();
-
+    window.addEventListener('DOMContentLoaded', () => App.init());
   </script>
 </body>
 </html>
