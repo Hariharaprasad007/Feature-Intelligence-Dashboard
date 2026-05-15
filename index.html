@@ -62,6 +62,15 @@
     .ai-gradient {
         background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
     }
+
+    .drop-zone {
+        border: 2px dashed #e2e8f0;
+        transition: all 0.2s ease;
+    }
+    .drop-zone.active {
+        border-color: #6366f1;
+        background-color: #f5f3ff;
+    }
   </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen">
@@ -90,9 +99,14 @@
       <button onclick="App.setTab('intel')" id="btn-intel" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500">Call Intel</button>
     </div>
 
-    <button onclick="App.openDrawer()" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-600 transition-all">
-      <i class="fa-solid fa-plus mr-2"></i> Log Insight
-    </button>
+    <div class="flex gap-2">
+        <button onclick="App.openImportModal()" class="bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all">
+            <i class="fa-solid fa-file-import mr-2"></i> Import
+        </button>
+        <button onclick="App.openDrawer()" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-600 transition-all">
+            <i class="fa-solid fa-plus mr-2"></i> Log Insight
+        </button>
+    </div>
   </nav>
 
   <main class="max-w-6xl mx-auto p-6">
@@ -155,7 +169,7 @@
                         <th class="px-6 py-4">Module</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4">Priority</th>
-                        <th class="px-6 py-4">MRR Impact</th>
+                        <th class="px-6 py-4 text-right">MRR Impact</th>
                     </tr>
                 </thead>
                 <tbody id="backlog-list" class="divide-y divide-slate-100 bg-white"></tbody>
@@ -246,7 +260,53 @@
     </div>
   </main>
 
-  <!-- Side Drawer -->
+  <!-- Import Modal -->
+  <div id="import-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="App.closeImportModal()"></div>
+    <div class="relative bg-white w-full max-w-xl rounded-[2rem] p-10 shadow-2xl overflow-hidden">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-2xl font-black">Bulk Data Import</h2>
+                <p class="text-slate-500 text-sm mt-1">Populate your backlog via CSV.</p>
+            </div>
+            <button onclick="App.closeImportModal()" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="mb-8 p-6 bg-indigo-50 border border-indigo-100 rounded-3xl flex items-center justify-between">
+            <div>
+                <div class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Required Columns</div>
+                <p class="text-xs font-bold text-slate-700">Account, Module, Priority, MRR</p>
+            </div>
+            <button onclick="App.downloadTemplate()" class="bg-white text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black shadow-sm border border-indigo-100 hover:shadow-md transition-all">
+                <i class="fa-solid fa-download mr-1"></i> TEMPLATE.CSV
+            </button>
+        </div>
+
+        <div id="drop-zone" class="drop-zone p-12 rounded-3xl flex flex-col items-center justify-center text-center cursor-pointer mb-6"
+             onover="event.preventDefault()" 
+             onclick="document.getElementById('csv-file').click()">
+            <input type="file" id="csv-file" class="hidden" accept=".csv" onchange="App.handleCSVUpload(event)">
+            <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 mb-4 group-active:scale-95 transition-transform">
+                <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+            </div>
+            <p class="text-sm font-bold text-slate-800">Click to upload or drag & drop</p>
+            <p class="text-[10px] text-slate-400 mt-2">Maximum file size: 5MB (CSV only)</p>
+        </div>
+
+        <div id="import-preview" class="hidden mb-6 max-h-48 overflow-y-auto custom-scrollbar border rounded-2xl p-4 bg-slate-50">
+            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Import Preview</h4>
+            <div id="preview-list" class="space-y-2"></div>
+        </div>
+
+        <div id="import-error" class="hidden mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-medium"></div>
+
+        <button id="btn-confirm-import" onclick="App.confirmImport()" class="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+            Finalize Import
+        </button>
+    </div>
+  </div>
+
+  <!-- Side Drawer (Manual Entry) -->
   <div id="drawer-overlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 hidden" onclick="App.closeDrawer()"></div>
   <div id="drawer" class="fixed top-0 right-0 h-full w-full max-w-sm bg-white z-[60] shadow-2xl transform translate-x-full transition-transform duration-300 p-8">
     <div class="flex justify-between items-center mb-8">
@@ -286,7 +346,7 @@
   </div>
 
   <script>
-    const apiKey = ""; // Provided by environment
+    const apiKey = "";
     const MODULES = [
         "AI - Eddy", "AI Premium Suite", "AI Search Suite", "AI Writer Suite", "Analytics", "API", "API Documentation", 
         "Article Discussions", "Article Management", "Article Redirection", "Article Review Reminders", "Article Revision History", 
@@ -313,6 +373,8 @@
             { id: 6, account: 'Data Matrix', module: 'Integrations & Extensions', priority: 'Medium', mrr: 5000, status: 'Logged' }
         ],
 
+        pendingImport: [],
+
         filters: {
             text: "",
             module: "All",
@@ -322,6 +384,7 @@
         
         init: function() {
             this.populateSelectors();
+            this.setupDropZone();
             this.render();
             setTimeout(() => {
                 const loader = document.getElementById('loading-screen');
@@ -337,6 +400,25 @@
             MODULES.forEach(m => {
                 modFilter.add(new Option(m, m));
                 modInput.add(new Option(m, m));
+            });
+        },
+
+        setupDropZone: function() {
+            const dz = document.getElementById('drop-zone');
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+                dz.addEventListener(evt, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            dz.addEventListener('dragenter', () => dz.classList.add('active'));
+            dz.addEventListener('dragover', () => dz.classList.add('active'));
+            dz.addEventListener('dragleave', () => dz.classList.remove('active'));
+            dz.addEventListener('drop', (e) => {
+                dz.classList.remove('active');
+                const file = e.dataTransfer.files[0];
+                if (file) this.processFile(file);
             });
         },
 
@@ -374,13 +456,12 @@
                     <td class="px-6 py-4 text-center font-mono text-slate-300 text-xs">${idx + 1}</td>
                     <td class="px-6 py-4">
                         <div class="font-bold text-slate-900">${item.account}</div>
-                        <div class="text-[10px] text-slate-400 font-medium">Logged via Intelligence</div>
                     </td>
                     <td class="px-6 py-4">
                         <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wider">${item.module}</span>
                     </td>
                     <td class="px-6 py-4">
-                        <select onchange="App.updateStatus(${item.id}, this.value)" class="bg-slate-100 border-none rounded-lg p-1 text-[10px] font-bold outline-none">
+                        <select onchange="App.updateStatus(${item.id}, this.value)" class="bg-slate-100 border-none rounded-lg p-1 text-[10px] font-bold outline-none cursor-pointer">
                             <option value="Logged" ${item.status === 'Logged' ? 'selected' : ''}>Logged</option>
                             <option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                             <option value="Shipped" ${item.status === 'Shipped' ? 'selected' : ''}>Shipped ✅</option>
@@ -392,7 +473,7 @@
                             <span class="text-xs font-bold ${item.priority === 'Critical' ? 'text-rose-600' : 'text-slate-600'}">${item.priority}</span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 font-mono font-black text-indigo-600">$${parseInt(item.mrr).toLocaleString()}</td>
+                    <td class="px-6 py-4 font-mono font-black text-indigo-600 text-right">$${parseInt(item.mrr).toLocaleString()}</td>
                 </tr>
             `).join('');
 
@@ -426,6 +507,7 @@
             };
 
             Object.values(containers).forEach(c => {
+                if(!c) return;
                 const label = c.querySelector('div');
                 c.innerHTML = '';
                 if(label) c.appendChild(label);
@@ -436,6 +518,8 @@
                 const isHighMRR = item.mrr >= mrrThreshold;
                 const isHighPri = ['Critical', 'High'].includes(item.priority);
                 let key = (isHighMRR ? 'H' : 'L') + (isHighPri ? 'H' : 'L');
+
+                if(!containers[key]) return;
 
                 const dotSize = Math.min(Math.max(item.mrr / 5000, 8), 24);
                 const dot = document.createElement('div');
@@ -475,7 +559,7 @@
                         <span class="text-slate-900">$${val.toLocaleString()}</span>
                     </div>
                     <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-indigo-500" style="width: ${(val / sorted[0][1]) * 100}%"></div>
+                        <div class="h-full bg-indigo-50" style="width: ${(val / sorted[0][1]) * 100}%"></div>
                     </div>
                 </div>
             `).join('');
@@ -491,17 +575,155 @@
             });
         },
 
+        // CSV HELPERS
+        openImportModal: function() {
+            document.getElementById('import-modal').classList.remove('hidden');
+            this.pendingImport = [];
+            this.resetImportState();
+        },
+
+        closeImportModal: function() {
+            document.getElementById('import-modal').classList.add('hidden');
+        },
+
+        resetImportState: function() {
+            document.getElementById('import-preview').classList.add('hidden');
+            document.getElementById('import-error').classList.add('hidden');
+            document.getElementById('btn-confirm-import').disabled = true;
+            document.getElementById('csv-file').value = '';
+        },
+
+        downloadTemplate: function() {
+            const headers = "Account,Module,Priority,MRR\n";
+            const sample = "Example Enterprise,Security,Critical,50000\nAcme Corp,Dashboard & Analytics,Medium,12000";
+            const blob = new Blob([headers + sample], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'strategic_pulse_template.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        },
+
+        handleCSVUpload: function(e) {
+            const file = e.target.files[0];
+            if (file) this.processFile(file);
+        },
+
+        processFile: function(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                this.parseCSV(text);
+            };
+            reader.readAsText(file);
+        },
+
+        parseCSV: function(text) {
+            const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
+            if (rows.length < 2) {
+                this.showImportError("CSV must contain at least a header row and one data row.");
+                return;
+            }
+
+            const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+            const mapping = {
+                account: headers.indexOf('account'),
+                module: headers.indexOf('module'),
+                priority: headers.indexOf('priority'),
+                mrr: headers.indexOf('mrr')
+            };
+
+            // Basic validation
+            if (mapping.account === -1 || mapping.module === -1 || mapping.priority === -1 || mapping.mrr === -1) {
+                this.showImportError("Missing required headers: Account, Module, Priority, MRR");
+                return;
+            }
+
+            const results = [];
+            for (let i = 1; i < rows.length; i++) {
+                const cols = rows[i].split(',').map(c => c.trim());
+                if (cols.length < 4) continue;
+
+                const item = {
+                    id: Date.now() + i,
+                    account: cols[mapping.account],
+                    module: cols[mapping.module],
+                    priority: this.cleanPriority(cols[mapping.priority]),
+                    mrr: parseInt(cols[mapping.mrr].replace(/[^0-9]/g, '')) || 0,
+                    status: 'Logged'
+                };
+
+                // Validate module
+                if (!MODULES.includes(item.module)) {
+                    // Fuzzy match or just pick first if invalid? Let's just log as invalid for now.
+                    item.isInvalid = true;
+                    item.errorReason = `Invalid module: ${item.module}`;
+                }
+
+                results.push(item);
+            }
+
+            this.pendingImport = results;
+            this.showPreview();
+        },
+
+        cleanPriority: function(p) {
+            const map = { crit: 'Critical', high: 'High', med: 'Medium', low: 'Low' };
+            const lower = p.toLowerCase();
+            if (lower.includes('crit')) return 'Critical';
+            if (lower.includes('high')) return 'High';
+            if (lower.includes('low')) return 'Low';
+            return 'Medium';
+        },
+
+        showImportError: function(msg) {
+            const errBox = document.getElementById('import-error');
+            errBox.innerText = msg;
+            errBox.classList.remove('hidden');
+        },
+
+        showPreview: function() {
+            const preview = document.getElementById('import-preview');
+            const list = document.getElementById('preview-list');
+            preview.classList.remove('hidden');
+            document.getElementById('import-error').classList.add('hidden');
+            
+            list.innerHTML = this.pendingImport.map(item => `
+                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 text-[10px]">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-800">${item.account}</span>
+                        <span class="${item.isInvalid ? 'text-rose-500' : 'text-slate-400'}">${item.isInvalid ? item.errorReason : item.module}</span>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-black text-indigo-600">$${item.mrr.toLocaleString()}</div>
+                        <div class="font-bold uppercase tracking-tighter opacity-50">${item.priority}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('btn-confirm-import').disabled = this.pendingImport.length === 0;
+        },
+
+        confirmImport: function() {
+            // Only import valid items
+            const toImport = this.pendingImport.filter(i => !i.isInvalid);
+            this.data = [...toImport, ...this.data];
+            this.render();
+            this.closeImportModal();
+        },
+
+        // EXISTING LOGIC
         async callGemini(prompt, isJson = false) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "You are a Revenue Intelligence AI assistant for a software product. You analyze business data to extract strategic insights. You are concise and professional." }] }
+                systemInstruction: { parts: [{ text: "You are a Revenue Intelligence AI assistant. Analyze business data to extract strategic insights. Be concise." }] }
             };
+            if (isJson) payload.generationConfig = { responseMimeType: "application/json" };
             
-            if (isJson) {
-                payload.generationConfig = { responseMimeType: "application/json" };
-            }
-
             let lastErr;
             for (let i = 0; i < 5; i++) {
                 try {
@@ -563,7 +785,7 @@
                 `;
             } catch (error) {
                 console.error(error);
-                results.innerHTML = `<div class="text-rose-400 font-bold p-4">Extraction failed. Please check your data or try again.</div>`;
+                results.innerHTML = `<div class="text-rose-400 font-bold p-4">Extraction failed. Check data format.</div>`;
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> ✨ Analyze with Gemini`;
@@ -573,19 +795,17 @@
         async generateAIStrategy() {
             const strategyBox = document.getElementById('ai-strategy-box');
             const content = document.getElementById('ai-strategy-content');
-            
             strategyBox.classList.remove('hidden');
-            content.innerText = "Consulting revenue matrix and market data...";
+            content.innerText = "Consulting revenue matrix...";
 
             try {
                 const activeData = this.data.filter(d => d.status !== 'Shipped');
                 const context = activeData.map(d => `${d.account} needs ${d.module} ($${d.mrr})`).join(', ');
-                const prompt = `Based on these active customer requests: ${context}. Provide a 2-sentence executive recommendation on which module should be the top priority for the engineering team to maximize revenue growth. Use a professional, strategic tone.`;
-                
+                const prompt = `Based on these active customer requests: ${context}. Provide a 2-sentence executive recommendation on top priorities.`;
                 const response = await this.callGemini(prompt);
                 content.innerText = response;
             } catch (err) {
-                content.innerText = "Unable to connect to strategy engine. Check network.";
+                content.innerText = "Error fetching strategy advice.";
             }
         },
 
@@ -593,25 +813,15 @@
             const acc = document.getElementById('in-account').value;
             const mrr = document.getElementById('in-mrr').value;
             const priSelect = document.getElementById('in-priority');
-            
             if(!acc || !mrr) return;
-
             const btn = event.target;
             const originalText = btn.innerText;
-            btn.innerText = "✨ thinking...";
-
+            btn.innerText = "✨...";
             try {
-                const prompt = `Based on a feature request from "${acc}" with a pipeline value of $${mrr}, suggest the most appropriate priority level (Critical, High, Medium, or Low). Critical is for large blockers, High for competitive gaps, Medium for UX, Low for minor asks. Return ONLY the one word priority level.`;
+                const prompt = `Suggest priority (Critical, High, Medium, or Low) for account "${acc}" with value $${mrr}. Return ONLY the word.`;
                 const response = (await this.callGemini(prompt)).trim();
-                
-                if(['Critical', 'High', 'Medium', 'Low'].includes(response)) {
-                    priSelect.value = response;
-                }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                btn.innerText = originalText;
-            }
+                if(['Critical', 'High', 'Medium', 'Low'].includes(response)) priSelect.value = response;
+            } catch (e) {} finally { btn.innerText = originalText; }
         },
 
         openDrawer: function() {
