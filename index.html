@@ -71,6 +71,18 @@
         border-color: #6366f1;
         background-color: #f5f3ff;
     }
+
+    .selection-bar {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(150%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 50;
+    }
+    .selection-bar.visible {
+        transform: translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen">
@@ -79,6 +91,22 @@
     <span class="pulse-loader"></span>
     <h2 class="text-white font-bold mt-4 tracking-tight">Strategic Pulse</h2>
     <p class="text-slate-400 text-xs mt-2">Initializing Gemini Intelligence...</p>
+  </div>
+
+  <!-- Selection Action Bar -->
+  <div id="bulk-action-bar" class="selection-bar w-full max-w-md px-4">
+      <div class="bg-slate-900 text-white rounded-2xl p-4 shadow-2xl flex items-center justify-between border border-slate-800">
+          <div class="flex items-center gap-3 pl-2">
+              <span id="selected-count" class="bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded-md">0</span>
+              <span class="text-xs font-bold text-slate-300">items selected</span>
+          </div>
+          <div class="flex gap-2">
+              <button onclick="App.clearSelection()" class="px-3 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
+              <button onclick="App.deleteSelected()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2">
+                  <i class="fa-solid fa-trash-can"></i> Delete
+              </button>
+          </div>
+      </div>
   </div>
 
   <!-- Navigation -->
@@ -109,7 +137,7 @@
     </div>
   </nav>
 
-  <main class="max-w-6xl mx-auto p-6">
+  <main class="max-w-6xl mx-auto p-6 pb-32">
     <!-- Header Stats -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
       <div class="glass card p-6 border border-slate-200">
@@ -164,8 +192,10 @@
             <table class="w-full text-left">
                 <thead class="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     <tr>
-                        <th class="px-6 py-4 text-center w-12">#</th>
-                        <th class="px-6 py-4">Account & Context</th>
+                        <th class="px-6 py-4 w-12">
+                            <input type="checkbox" id="select-all" onclick="App.toggleSelectAll(this)" class="w-4 h-4 rounded accent-indigo-600">
+                        </th>
+                        <th class="px-4 py-4">Account & Context</th>
                         <th class="px-6 py-4">Module</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4">Priority</th>
@@ -214,25 +244,12 @@
                         <span>Low Priority</span>
                     </div>
                 </div>
-                
-                <div id="ai-strategy-box" class="mt-8 p-6 ai-gradient text-white rounded-2xl hidden">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i>
-                        <span class="text-[10px] font-black uppercase tracking-widest">Gemini Revenue Advisor</span>
-                    </div>
-                    <div id="ai-strategy-content" class="text-sm font-medium leading-relaxed italic"></div>
-                </div>
             </div>
-
             <div class="space-y-6">
                 <div class="glass card p-6 border border-slate-200 bg-indigo-600 text-white">
                     <h4 class="text-sm font-bold opacity-80 mb-1">Top Revenue Blocker</h4>
                     <div id="top-blocker-name" class="text-xl font-black">--</div>
                     <div id="top-blocker-value" class="text-2xl font-light opacity-90 mt-2">$0.00</div>
-                </div>
-                <div class="glass card p-6 border border-slate-200">
-                    <h4 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Module Distribution</h4>
-                    <div id="module-summary" class="space-y-4"></div>
                 </div>
             </div>
         </div>
@@ -243,8 +260,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div class="glass card p-8 border border-slate-200">
                 <h3 class="text-xl font-bold mb-4">Transcript Analysis</h3>
-                <p class="text-xs text-slate-500 mb-4 italic">Paste raw call notes or transcripts below. Gemini will extract accounts, revenue, and modules.</p>
-                <textarea id="transcript-input" class="w-full h-72 p-6 rounded-3xl bg-slate-50 border border-slate-200 text-sm font-mono focus:ring-4 focus:ring-indigo-500/10 outline-none resize-none transition-all" placeholder="E.g. Spoke with Sarah from NetCore. They are looking to close a $60k deal but are blocked because they need advanced MFA and SSO which we currently lack in our Security module."></textarea>
+                <p class="text-xs text-slate-500 mb-4 italic">Paste raw call notes or transcripts below.</p>
+                <textarea id="transcript-input" class="w-full h-72 p-6 rounded-3xl bg-slate-50 border border-slate-200 text-sm font-mono focus:ring-4 focus:ring-indigo-500/10 outline-none resize-none transition-all" placeholder="E.g. Spoke with Sarah from NetCore..."></textarea>
                 <button onclick="App.analyzeTranscript()" id="btn-analyze" class="w-full mt-6 py-4 ai-gradient text-white font-black rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200">
                     <i class="fa-solid fa-wand-magic-sparkles"></i> ✨ Analyze with Gemini
                 </button>
@@ -254,7 +271,6 @@
                     <i class="fa-solid fa-microchip text-3xl"></i>
                 </div>
                 <h4 class="text-lg font-bold">Neural Engine Ready</h4>
-                <p class="text-slate-500 text-sm mt-2 max-w-xs">Paste a call summary to start intelligent feature extraction.</p>
             </div>
         </div>
     </div>
@@ -271,35 +287,13 @@
             </div>
             <button onclick="App.closeImportModal()" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
         </div>
-
-        <div class="mb-8 p-6 bg-indigo-50 border border-indigo-100 rounded-3xl flex items-center justify-between">
-            <div>
-                <div class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Required Columns</div>
-                <p class="text-xs font-bold text-slate-700">Account, Module, Priority, MRR</p>
-            </div>
-            <button onclick="App.downloadTemplate()" class="bg-white text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black shadow-sm border border-indigo-100 hover:shadow-md transition-all">
-                <i class="fa-solid fa-download mr-1"></i> TEMPLATE.CSV
-            </button>
-        </div>
-
-        <div id="drop-zone" class="drop-zone p-12 rounded-3xl flex flex-col items-center justify-center text-center cursor-pointer mb-6"
-             onover="event.preventDefault()" 
-             onclick="document.getElementById('csv-file').click()">
+        <div id="drop-zone" class="drop-zone p-12 rounded-3xl flex flex-col items-center justify-center text-center cursor-pointer mb-6" onclick="document.getElementById('csv-file').click()">
             <input type="file" id="csv-file" class="hidden" accept=".csv" onchange="App.handleCSVUpload(event)">
-            <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 mb-4 group-active:scale-95 transition-transform">
-                <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
-            </div>
             <p class="text-sm font-bold text-slate-800">Click to upload or drag & drop</p>
-            <p class="text-[10px] text-slate-400 mt-2">Maximum file size: 5MB (CSV only)</p>
         </div>
-
         <div id="import-preview" class="hidden mb-6 max-h-48 overflow-y-auto custom-scrollbar border rounded-2xl p-4 bg-slate-50">
-            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Import Preview</h4>
             <div id="preview-list" class="space-y-2"></div>
         </div>
-
-        <div id="import-error" class="hidden mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-medium"></div>
-
         <button id="btn-confirm-import" onclick="App.confirmImport()" class="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-indigo-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed" disabled>
             Finalize Import
         </button>
@@ -313,112 +307,65 @@
         <h2 class="text-xl font-bold">Log New Request</h2>
         <button onclick="App.closeDrawer()" class="p-2 hover:bg-slate-100 rounded-full"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <form onsubmit="App.handleSubmit(event)" class="space-y-5 h-[calc(100%-80px)] overflow-y-auto pr-2 custom-scrollbar">
+    <form onsubmit="App.handleSubmit(event)" class="space-y-5">
         <div>
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Context</label>
-            <input id="in-account" required placeholder="e.g. Acme Corp" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm outline-none focus:border-indigo-500 transition-colors">
+            <input id="in-account" required placeholder="e.g. Acme Corp" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm outline-none">
         </div>
         <div>
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Module Segment</label>
-            <select id="in-module" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm outline-none focus:border-indigo-500 transition-colors">
+            <select id="in-module" required class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm"></select>
+        </div>
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Priority</label>
+            <select id="in-priority" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm">
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
             </select>
         </div>
         <div>
-            <div class="flex justify-between items-center">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Strategic Priority</label>
-                <button type="button" onclick="App.suggestPriority()" class="text-[10px] font-bold text-indigo-500 hover:underline">✨ Suggest</button>
-            </div>
-            <select id="in-priority" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm outline-none focus:border-indigo-500 transition-colors">
-                <option value="Critical">Critical (Blocker)</option>
-                <option value="High">High (Competitive)</option>
-                <option value="Medium">Medium (UX)</option>
-                <option value="Low">Low (Nice to have)</option>
-            </select>
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">MRR ($)</label>
+            <input id="in-mrr" type="number" required placeholder="5000" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm outline-none">
         </div>
-        <div>
-            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pipeline Value ($)</label>
-            <input id="in-mrr" type="number" required placeholder="5000" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl mt-1 text-sm outline-none focus:border-indigo-500 transition-colors">
-        </div>
-        <button class="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all transform active:scale-95">
-            Add to Revenue Stream
-        </button>
+        <button class="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100">Add Request</button>
     </form>
   </div>
 
   <script>
     const apiKey = "";
     const MODULES = [
-        "AI - Eddy", "AI Premium Suite", "AI Search Suite", "AI Writer Suite", "Analytics", "API", "API Documentation", 
-        "Article Discussions", "Article Management", "Article Redirection", "Article Review Reminders", "Article Revision History", 
-        "Article Settings", "Article Templates", "Authentication & Authorization", "Backup & Restore", "Billing", "Bulk Operations", 
-        "Category Management", "Content reuse", "Content Security Policy", "Content Tools", "Cookie Consent", "Custom Pages", 
-        "Dashboard", "Dashboard & Analytics", "Data Transfer & Recovery", "Drive", "Editor", "Editor - Advanced WYSIWYG", 
-        "Editor - Markdown", "Export to PDF", "Extensions", "Feedback Management", "Feedback Manager", "Find & Replace", 
-        "Glossary", "Health Check Metrics", "Import & Export", "Infrastructure", "Integrations & Extensions", 
-        "Interactive decision trees", "IP Restrictions", "KB Assistant", "KB Customization", "KB Site", "KB Site Article Settings", 
-        "Machine Translation", "MCP", "Notifications", "PDF export", "Project/workspace management", "Read Receipt", 
-        "Readers & Groups", "Readers Self Registration", "Roles & Permissions", "Sandbox", "Search", "SEO Description", 
-        "Settings", "Site Performance", "Smart Bars & Announcements", "Snippets", "Step-by-step guides", "Tags & Groups", 
-        "Team Accounts & Groups", "Team auditing/ Notification", "Team Collaboration", "Ticket Deflectors", "UI/UX", 
-        "Users and Security", "Variables", "Widget, Chat, Ticket Deflector", "Workflow Designer", "Workspace Manager"
+        "AI - Eddy", "AI Premium Suite", "Analytics", "API", "Billing", "Dashboard", "Editor", "Security", "UI/UX", "Integrations"
     ].sort();
 
     const App = {
         data: [
             { id: 1, account: 'Alpha Global', module: 'Security', priority: 'Critical', mrr: 45000, status: 'Logged' },
-            { id: 2, account: 'TechFlow Inc', module: 'Integrations & Extensions', priority: 'High', mrr: 28000, status: 'Logged' },
-            { id: 3, account: 'Retail Hub', module: 'Dashboard & Analytics', priority: 'High', mrr: 15000, status: 'Logged' },
+            { id: 2, account: 'TechFlow Inc', module: 'Integrations', priority: 'High', mrr: 28000, status: 'Logged' },
+            { id: 3, account: 'Retail Hub', module: 'Analytics', priority: 'High', mrr: 15000, status: 'Logged' },
             { id: 4, account: 'Innovate AI', module: 'AI - Eddy', priority: 'Low', mrr: 85000, status: 'Logged' },
-            { id: 5, account: 'Stellar Corp', module: 'Security', priority: 'Critical', mrr: 12000, status: 'Shipped' },
-            { id: 6, account: 'Data Matrix', module: 'Integrations & Extensions', priority: 'Medium', mrr: 5000, status: 'Logged' }
+            { id: 5, account: 'Stellar Corp', module: 'Security', priority: 'Critical', mrr: 12000, status: 'Shipped' }
         ],
 
-        pendingImport: [],
+        selectedIds: new Set(),
+        filters: { text: "", module: "All", priority: "All", showShipped: false },
 
-        filters: {
-            text: "",
-            module: "All",
-            priority: "All",
-            showShipped: false
-        },
-        
         init: function() {
             this.populateSelectors();
-            this.setupDropZone();
             this.render();
             setTimeout(() => {
-                const loader = document.getElementById('loading-screen');
-                loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 500);
+                document.getElementById('loading-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
             }, 800);
         },
 
         populateSelectors: function() {
             const modFilter = document.getElementById('moduleFilter');
             const modInput = document.getElementById('in-module');
-            
             MODULES.forEach(m => {
                 modFilter.add(new Option(m, m));
                 modInput.add(new Option(m, m));
-            });
-        },
-
-        setupDropZone: function() {
-            const dz = document.getElementById('drop-zone');
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
-                dz.addEventListener(evt, e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }, false);
-            });
-
-            dz.addEventListener('dragenter', () => dz.classList.add('active'));
-            dz.addEventListener('dragover', () => dz.classList.add('active'));
-            dz.addEventListener('dragleave', () => dz.classList.remove('active'));
-            dz.addEventListener('drop', (e) => {
-                dz.classList.remove('active');
-                const file = e.dataTransfer.files[0];
-                if (file) this.processFile(file);
             });
         },
 
@@ -430,17 +377,68 @@
             this.render();
         },
 
-        render: function() {
-            const list = document.getElementById('backlog-list');
+        toggleSelection: function(id) {
+            if (this.selectedIds.has(id)) {
+                this.selectedIds.delete(id);
+            } else {
+                this.selectedIds.add(id);
+            }
+            this.updateBulkBar();
+        },
+
+        toggleSelectAll: function(checkbox) {
+            const visibleItems = this.getFilteredData();
+            if (checkbox.checked) {
+                visibleItems.forEach(item => this.selectedIds.add(item.id));
+            } else {
+                visibleItems.forEach(item => this.selectedIds.delete(item.id));
+            }
+            this.renderList();
+            this.updateBulkBar();
+        },
+
+        clearSelection: function() {
+            this.selectedIds.clear();
+            document.getElementById('select-all').checked = false;
+            this.renderList();
+            this.updateBulkBar();
+        },
+
+        deleteSelected: function() {
+            const count = this.selectedIds.size;
+            if (count === 0) return;
             
-            const filtered = this.data.filter(item => {
+            // Custom Confirmation would be better, but basic check for now
+            this.data = this.data.filter(item => !this.selectedIds.has(item.id));
+            this.selectedIds.clear();
+            this.updateBulkBar();
+            this.render();
+        },
+
+        updateBulkBar: function() {
+            const bar = document.getElementById('bulk-action-bar');
+            const countEl = document.getElementById('selected-count');
+            const count = this.selectedIds.size;
+            
+            if (count > 0) {
+                countEl.innerText = count;
+                bar.classList.add('visible');
+            } else {
+                bar.classList.remove('visible');
+            }
+        },
+
+        getFilteredData: function() {
+            return this.data.filter(item => {
                 const matchesText = item.account.toLowerCase().includes(this.filters.text.toLowerCase());
                 const matchesModule = this.filters.module === 'All' || item.module === this.filters.module;
                 const matchesPriority = this.filters.priority === 'All' || item.priority === this.filters.priority;
                 const matchesShipped = this.filters.showShipped || item.status !== 'Shipped';
                 return matchesText && matchesModule && matchesPriority && matchesShipped;
             });
+        },
 
+        render: function() {
             const activeData = this.data.filter(d => d.status !== 'Shipped');
             const totalMRR = activeData.reduce((acc, curr) => acc + parseInt(curr.mrr), 0);
             const avgMRR = activeData.length ? Math.round(totalMRR / activeData.length) : 0;
@@ -451,34 +449,43 @@
             document.getElementById('stat-avg').innerText = `$${avgMRR.toLocaleString()}`;
             document.getElementById('stat-critical').innerText = criticals;
 
+            this.renderList();
+            this.renderMatrix();
+            this.renderModuleSummary();
+        },
+
+        renderList: function() {
+            const list = document.getElementById('backlog-list');
+            const filtered = this.getFilteredData();
+
             list.innerHTML = filtered.map((item, idx) => `
-                <tr class="group hover:bg-slate-50 transition-colors ${item.status === 'Shipped' ? 'opacity-50' : ''}">
-                    <td class="px-6 py-4 text-center font-mono text-slate-300 text-xs">${idx + 1}</td>
+                <tr class="group hover:bg-slate-50 transition-colors ${this.selectedIds.has(item.id) ? 'bg-indigo-50/50' : ''} ${item.status === 'Shipped' ? 'opacity-50' : ''}">
                     <td class="px-6 py-4">
+                        <input type="checkbox" ${this.selectedIds.has(item.id) ? 'checked' : ''} 
+                               onclick="App.toggleSelection(${item.id})" 
+                               class="w-4 h-4 rounded accent-indigo-600 cursor-pointer">
+                    </td>
+                    <td class="px-4 py-4">
                         <div class="font-bold text-slate-900">${item.account}</div>
                     </td>
                     <td class="px-6 py-4">
                         <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wider">${item.module}</span>
                     </td>
                     <td class="px-6 py-4">
-                        <select onchange="App.updateStatus(${item.id}, this.value)" class="bg-slate-100 border-none rounded-lg p-1 text-[10px] font-bold outline-none cursor-pointer">
+                        <select onchange="App.updateStatus(${item.id}, this.value)" class="bg-transparent text-[10px] font-bold outline-none cursor-pointer">
                             <option value="Logged" ${item.status === 'Logged' ? 'selected' : ''}>Logged</option>
-                            <option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                            <option value="Shipped" ${item.status === 'Shipped' ? 'selected' : ''}>Shipped ✅</option>
+                            <option value="Shipped" ${item.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
                         </select>
                     </td>
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-2">
-                            <span class="w-1.5 h-1.5 rounded-full ${this.getPriorityColor(item.priority)}"></span>
-                            <span class="text-xs font-bold ${item.priority === 'Critical' ? 'text-rose-600' : 'text-slate-600'}">${item.priority}</span>
+                            <span class="w-1.5 h-1.5 rounded-full ${item.priority === 'Critical' ? 'bg-rose-500' : 'bg-indigo-400'}"></span>
+                            <span class="text-xs font-bold">${item.priority}</span>
                         </div>
                     </td>
                     <td class="px-6 py-4 font-mono font-black text-indigo-600 text-right">$${parseInt(item.mrr).toLocaleString()}</td>
                 </tr>
             `).join('');
-
-            this.renderMatrix();
-            this.renderModuleSummary();
         },
 
         updateStatus: function(id, status) {
@@ -489,15 +496,6 @@
             }
         },
 
-        getPriorityColor: function(p) {
-            switch(p) {
-                case 'Critical': return 'bg-rose-500';
-                case 'High': return 'bg-orange-500';
-                case 'Medium': return 'bg-amber-500';
-                default: return 'bg-slate-300';
-            }
-        },
-
         renderMatrix: function() {
             const containers = {
                 'HH': document.getElementById('q-high-mrr-high-pri'),
@@ -505,35 +503,15 @@
                 'HL': document.getElementById('q-high-mrr-low-pri'),
                 'LL': document.getElementById('q-low-mrr-low-pri')
             };
-
-            Object.values(containers).forEach(c => {
-                if(!c) return;
-                const label = c.querySelector('div');
-                c.innerHTML = '';
-                if(label) c.appendChild(label);
-            });
-
-            const mrrThreshold = 25000;
+            Object.values(containers).forEach(c => { if(c) { const l = c.querySelector('div'); c.innerHTML = ''; if(l) c.appendChild(l); }});
+            const threshold = 25000;
             this.data.filter(d => d.status !== 'Shipped').forEach(item => {
-                const isHighMRR = item.mrr >= mrrThreshold;
-                const isHighPri = ['Critical', 'High'].includes(item.priority);
-                let key = (isHighMRR ? 'H' : 'L') + (isHighPri ? 'H' : 'L');
-
+                const isHMRR = item.mrr >= threshold;
+                const isHPri = ['Critical', 'High'].includes(item.priority);
+                const key = (isHMRR ? 'H' : 'L') + (isHPri ? 'H' : 'L');
                 if(!containers[key]) return;
-
-                const dotSize = Math.min(Math.max(item.mrr / 5000, 8), 24);
                 const dot = document.createElement('div');
-                dot.className = `rounded-full ${isHighPri ? 'bg-indigo-500' : 'bg-slate-400'} cursor-help relative group`;
-                dot.style.width = `${dotSize}px`;
-                dot.style.height = `${dotSize}px`;
-                dot.innerHTML = `
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                        <div class="bg-slate-900 text-white text-[10px] p-2 rounded-lg whitespace-nowrap shadow-xl">
-                            <strong>${item.account}</strong><br/>
-                            $${parseInt(item.mrr).toLocaleString()} Impact
-                        </div>
-                    </div>
-                `;
+                dot.className = `w-4 h-4 rounded-full ${isHPri ? 'bg-indigo-500' : 'bg-slate-300'}`;
                 containers[key].appendChild(dot);
             });
         },
@@ -541,318 +519,37 @@
         renderModuleSummary: function() {
             const summary = {};
             this.data.filter(d => d.status !== 'Shipped').forEach(d => {
-                if(!summary[d.module]) summary[d.module] = 0;
-                summary[d.module] += parseInt(d.mrr);
+                summary[d.module] = (summary[d.module] || 0) + parseInt(d.mrr);
             });
-
             const sorted = Object.entries(summary).sort((a,b) => b[1] - a[1]);
             if(sorted.length > 0) {
                 document.getElementById('top-blocker-name').innerText = sorted[0][0];
                 document.getElementById('top-blocker-value').innerText = `$${sorted[0][1].toLocaleString()}`;
             }
-
-            const container = document.getElementById('module-summary');
-            container.innerHTML = sorted.slice(0, 8).map(([mod, val]) => `
-                <div>
-                    <div class="flex justify-between text-[10px] font-bold mb-1">
-                        <span class="text-slate-500 truncate mr-2">${mod}</span>
-                        <span class="text-slate-900">$${val.toLocaleString()}</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-indigo-50" style="width: ${(val / sorted[0][1]) * 100}%"></div>
-                    </div>
-                </div>
-            `).join('');
         },
 
         setTab: function(tab) {
             ['backlog', 'roadmap', 'intel'].forEach(t => {
                 document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
-                const btn = document.getElementById(`btn-${t}`);
-                btn.className = t === tab 
-                    ? "px-4 py-1.5 rounded-lg text-xs font-bold transition-all bg-white shadow-sm text-indigo-600" 
-                    : "px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-500";
+                document.getElementById(`btn-${t}`).className = t === tab ? "px-4 py-1.5 bg-white shadow-sm text-indigo-600 rounded-lg text-xs font-bold" : "text-slate-500 rounded-lg text-xs font-bold px-4 py-1.5";
             });
         },
 
-        // CSV HELPERS
-        openImportModal: function() {
-            document.getElementById('import-modal').classList.remove('hidden');
-            this.pendingImport = [];
-            this.resetImportState();
-        },
-
-        closeImportModal: function() {
-            document.getElementById('import-modal').classList.add('hidden');
-        },
-
-        resetImportState: function() {
-            document.getElementById('import-preview').classList.add('hidden');
-            document.getElementById('import-error').classList.add('hidden');
-            document.getElementById('btn-confirm-import').disabled = true;
-            document.getElementById('csv-file').value = '';
-        },
-
-        downloadTemplate: function() {
-            const headers = "Account,Module,Priority,MRR\n";
-            const sample = "Example Enterprise,Security,Critical,50000\nAcme Corp,Dashboard & Analytics,Medium,12000";
-            const blob = new Blob([headers + sample], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('hidden', '');
-            a.setAttribute('href', url);
-            a.setAttribute('download', 'strategic_pulse_template.csv');
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        },
-
-        handleCSVUpload: function(e) {
-            const file = e.target.files[0];
-            if (file) this.processFile(file);
-        },
-
-        processFile: function(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target.result;
-                this.parseCSV(text);
-            };
-            reader.readAsText(file);
-        },
-
-        parseCSV: function(text) {
-            const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
-            if (rows.length < 2) {
-                this.showImportError("CSV must contain at least a header row and one data row.");
-                return;
-            }
-
-            const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
-            const mapping = {
-                account: headers.indexOf('account'),
-                module: headers.indexOf('module'),
-                priority: headers.indexOf('priority'),
-                mrr: headers.indexOf('mrr')
-            };
-
-            // Basic validation
-            if (mapping.account === -1 || mapping.module === -1 || mapping.priority === -1 || mapping.mrr === -1) {
-                this.showImportError("Missing required headers: Account, Module, Priority, MRR");
-                return;
-            }
-
-            const results = [];
-            for (let i = 1; i < rows.length; i++) {
-                const cols = rows[i].split(',').map(c => c.trim());
-                if (cols.length < 4) continue;
-
-                const item = {
-                    id: Date.now() + i,
-                    account: cols[mapping.account],
-                    module: cols[mapping.module],
-                    priority: this.cleanPriority(cols[mapping.priority]),
-                    mrr: parseInt(cols[mapping.mrr].replace(/[^0-9]/g, '')) || 0,
-                    status: 'Logged'
-                };
-
-                // Validate module
-                if (!MODULES.includes(item.module)) {
-                    // Fuzzy match or just pick first if invalid? Let's just log as invalid for now.
-                    item.isInvalid = true;
-                    item.errorReason = `Invalid module: ${item.module}`;
-                }
-
-                results.push(item);
-            }
-
-            this.pendingImport = results;
-            this.showPreview();
-        },
-
-        cleanPriority: function(p) {
-            const map = { crit: 'Critical', high: 'High', med: 'Medium', low: 'Low' };
-            const lower = p.toLowerCase();
-            if (lower.includes('crit')) return 'Critical';
-            if (lower.includes('high')) return 'High';
-            if (lower.includes('low')) return 'Low';
-            return 'Medium';
-        },
-
-        showImportError: function(msg) {
-            const errBox = document.getElementById('import-error');
-            errBox.innerText = msg;
-            errBox.classList.remove('hidden');
-        },
-
-        showPreview: function() {
-            const preview = document.getElementById('import-preview');
-            const list = document.getElementById('preview-list');
-            preview.classList.remove('hidden');
-            document.getElementById('import-error').classList.add('hidden');
-            
-            list.innerHTML = this.pendingImport.map(item => `
-                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 text-[10px]">
-                    <div class="flex flex-col">
-                        <span class="font-bold text-slate-800">${item.account}</span>
-                        <span class="${item.isInvalid ? 'text-rose-500' : 'text-slate-400'}">${item.isInvalid ? item.errorReason : item.module}</span>
-                    </div>
-                    <div class="text-right">
-                        <div class="font-black text-indigo-600">$${item.mrr.toLocaleString()}</div>
-                        <div class="font-bold uppercase tracking-tighter opacity-50">${item.priority}</div>
-                    </div>
-                </div>
-            `).join('');
-
-            document.getElementById('btn-confirm-import').disabled = this.pendingImport.length === 0;
-        },
-
-        confirmImport: function() {
-            // Only import valid items
-            const toImport = this.pendingImport.filter(i => !i.isInvalid);
-            this.data = [...toImport, ...this.data];
-            this.render();
-            this.closeImportModal();
-        },
-
-        // EXISTING LOGIC
-        async callGemini(prompt, isJson = false) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "You are a Revenue Intelligence AI assistant. Analyze business data to extract strategic insights. Be concise." }] }
-            };
-            if (isJson) payload.generationConfig = { responseMimeType: "application/json" };
-            
-            let lastErr;
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) throw new Error('API request failed');
-                    const result = await response.json();
-                    return result.candidates?.[0]?.content?.parts?.[0]?.text;
-                } catch (e) {
-                    lastErr = e;
-                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
-                }
-            }
-            throw lastErr;
-        },
-
-        async analyzeTranscript() {
-            const input = document.getElementById('transcript-input').value;
-            const btn = document.getElementById('btn-analyze');
-            const results = document.getElementById('intel-results');
-
-            if (!input.trim()) return;
-
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...`;
-
-            try {
-                const prompt = `Analyze this sales transcript or call summary and extract the following into a JSON object: { accountName: string, mrrImpact: number, moduleName: string (must match one of: ${MODULES.join(', ')}), summary: string }. 
-                Transcript: "${input}"`;
-                
-                const rawResponse = await this.callGemini(prompt, true);
-                const data = JSON.parse(rawResponse);
-                
-                results.innerHTML = `
-                    <div class="text-left w-full">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="px-2 py-0.5 bg-indigo-500 text-[10px] font-black uppercase rounded tracking-tighter">Gemini Insight</span>
-                            <span class="text-[10px] font-bold text-slate-500">Neural Match: ${data.moduleName}</span>
-                        </div>
-                        <h4 class="text-xl font-black text-white mb-2">${data.accountName}</h4>
-                        <p class="text-slate-400 text-sm mb-6">${data.summary}</p>
-                        <div class="p-4 bg-slate-800 rounded-2xl mb-6 flex justify-between items-center">
-                            <div>
-                                <div class="text-[10px] text-slate-500 uppercase font-black">Estimated Value</div>
-                                <div class="text-lg font-mono font-bold text-indigo-400">$${data.mrrImpact.toLocaleString()}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-[10px] text-slate-500 uppercase font-black">Module</div>
-                                <div class="text-xs font-bold">${data.moduleName}</div>
-                            </div>
-                        </div>
-                        <button onclick="App.openDrawerWithData('${data.accountName.replace(/'/g, "\\'")}', '${data.moduleName}', ${data.mrrImpact})" class="w-full py-4 bg-white text-slate-900 font-black rounded-2xl text-xs hover:bg-slate-100 transition-all shadow-xl">
-                            Commit to Revenue Stream
-                        </button>
-                    </div>
-                `;
-            } catch (error) {
-                console.error(error);
-                results.innerHTML = `<div class="text-rose-400 font-bold p-4">Extraction failed. Check data format.</div>`;
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> ✨ Analyze with Gemini`;
-            }
-        },
-
-        async generateAIStrategy() {
-            const strategyBox = document.getElementById('ai-strategy-box');
-            const content = document.getElementById('ai-strategy-content');
-            strategyBox.classList.remove('hidden');
-            content.innerText = "Consulting revenue matrix...";
-
-            try {
-                const activeData = this.data.filter(d => d.status !== 'Shipped');
-                const context = activeData.map(d => `${d.account} needs ${d.module} ($${d.mrr})`).join(', ');
-                const prompt = `Based on these active customer requests: ${context}. Provide a 2-sentence executive recommendation on top priorities.`;
-                const response = await this.callGemini(prompt);
-                content.innerText = response;
-            } catch (err) {
-                content.innerText = "Error fetching strategy advice.";
-            }
-        },
-
-        async suggestPriority() {
-            const acc = document.getElementById('in-account').value;
-            const mrr = document.getElementById('in-mrr').value;
-            const priSelect = document.getElementById('in-priority');
-            if(!acc || !mrr) return;
-            const btn = event.target;
-            const originalText = btn.innerText;
-            btn.innerText = "✨...";
-            try {
-                const prompt = `Suggest priority (Critical, High, Medium, or Low) for account "${acc}" with value $${mrr}. Return ONLY the word.`;
-                const response = (await this.callGemini(prompt)).trim();
-                if(['Critical', 'High', 'Medium', 'Low'].includes(response)) priSelect.value = response;
-            } catch (e) {} finally { btn.innerText = originalText; }
-        },
-
-        openDrawer: function() {
-            document.getElementById('drawer').classList.remove('translate-x-full');
-            document.getElementById('drawer-overlay').classList.remove('hidden');
-        },
-
-        openDrawerWithData: function(acc, mod, mrr) {
-            this.openDrawer();
-            document.getElementById('in-account').value = acc;
-            document.getElementById('in-module').value = mod;
-            document.getElementById('in-mrr').value = mrr;
-            this.suggestPriority();
-        },
-
-        closeDrawer: function() {
-            document.getElementById('drawer').classList.add('translate-x-full');
-            document.getElementById('drawer-overlay').classList.add('hidden');
-        },
+        openDrawer: function() { document.getElementById('drawer').classList.remove('translate-x-full'); document.getElementById('drawer-overlay').classList.remove('hidden'); },
+        closeDrawer: function() { document.getElementById('drawer').classList.add('translate-x-full'); document.getElementById('drawer-overlay').classList.add('hidden'); },
+        openImportModal: function() { document.getElementById('import-modal').classList.remove('hidden'); },
+        closeImportModal: function() { document.getElementById('import-modal').classList.add('hidden'); },
 
         handleSubmit: function(e) {
             e.preventDefault();
-            const newItem = {
+            this.data.unshift({
                 id: Date.now(),
                 account: document.getElementById('in-account').value,
                 module: document.getElementById('in-module').value,
                 priority: document.getElementById('in-priority').value,
                 mrr: parseInt(document.getElementById('in-mrr').value),
                 status: 'Logged'
-            };
-            this.data.unshift(newItem);
+            });
             this.render();
             this.closeDrawer();
             e.target.reset();
